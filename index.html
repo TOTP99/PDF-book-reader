@@ -404,6 +404,12 @@
     <main class="stage" id="stage">
       <canvas id="viewer" hidden></canvas>
       <div class="hint" id="hint" hidden></div>
+      <div class="mobile-reading-hud" id="mobile-reading-hud" aria-hidden="true">
+        <button class="mini-btn" id="mobile-prev" type="button" aria-label="上一页">‹</button>
+        <span class="mini-page" id="mobile-page">1 / —</span>
+        <button class="mini-btn" id="mobile-next" type="button" aria-label="下一页">›</button>
+        <button class="mini-btn" id="mobile-reset" type="button" aria-label="恢复适合屏幕">↺</button>
+      </div>
       <div class="loading" id="loading" aria-live="polite">
         <div class="loading-label" id="loading-label">正在加载…</div>
         <div class="progress-track">
@@ -485,6 +491,11 @@
         btnZoomIn: document.getElementById("btn-zoom-in"),
         btnZoomOut: document.getElementById("btn-zoom-out"),
         btnFs: document.getElementById("btn-fs"),
+        mobileHud: document.getElementById("mobile-reading-hud"),
+        mobilePage: document.getElementById("mobile-page"),
+        mobilePrev: document.getElementById("mobile-prev"),
+        mobileNext: document.getElementById("mobile-next"),
+        mobileReset: document.getElementById("mobile-reset"),
         btnShelf: document.getElementById("btn-shelf"),
         btnShelfClose: document.getElementById("btn-shelf-close"),
         shelf: document.getElementById("shelf"),
@@ -514,6 +525,11 @@
       let pinchStartDistance = 0;
       let pinchStartScale = 1;
       let pinchStartCenter = null;
+      let pinchLastScale = 1;
+      let gestureMoved = false;
+      let tapSuppressUntil = 0;
+      let hudTimer = null;
+      let continuousMode = true;
 
       // 手势状态：双指缩放
       let pinchStartDistance = 0;
@@ -528,6 +544,54 @@
         const dx = t2.clientX - t1.clientX;
         const dy = t2.clientY - t1.clientY;
         return Math.hypot(dx, dy);
+      }
+
+      function storageKey(suffix) {
+        return "tp_pdf_" + suffix + "_" + (currentBook && currentBook.file);
+      }
+
+      function saveReadingState() {
+        if (!currentBook) return;
+        try {
+          localStorage.setItem(storageKey("page"), String(pageNum));
+          localStorage.setItem(storageKey("scale"), String(viewScale));
+          localStorage.setItem(storageKey("x"), String(viewX));
+          localStorage.setItem(storageKey("y"), String(viewY));
+        } catch (e) {}
+      }
+
+      function readReadingState() {
+        const state = { page: 1, scale: 1, x: 0, y: 0 };
+        if (!currentBook) return state;
+        try {
+          const p = parseInt(localStorage.getItem(storageKey("page")) || "1", 10);
+          const s = parseFloat(localStorage.getItem(storageKey("scale")) || "1");
+          const x = parseFloat(localStorage.getItem(storageKey("x")) || "0");
+          const y = parseFloat(localStorage.getItem(storageKey("y")) || "0");
+          if (Number.isFinite(p) && p >= 1) state.page = p;
+          if (Number.isFinite(s)) state.scale = clamp(s, 1, 4);
+          if (Number.isFinite(x)) state.x = x;
+          if (Number.isFinite(y)) state.y = y;
+        } catch (e) {}
+        return state;
+      }
+
+      function showReadingHud() {
+        if (!els.mobileHud) return;
+        els.mobileHud.classList.add("show");
+        els.mobileHud.setAttribute("aria-hidden", "false");
+        clearTimeout(hudTimer);
+        hudTimer = setTimeout(() => {
+          els.mobileHud.classList.remove("show");
+          els.mobileHud.setAttribute("aria-hidden", "true");
+        }, 1800);
+      }
+
+      function updateReadingHud() {
+        if (!els.mobilePage) return;
+        els.mobilePage.textContent =
+          `${pageNum} / ${pdfDoc ? pdfDoc.numPages : "—"}`;
+        els.stage.classList.add("mobile-reading");
       }
 
       function setProgress(p) {
@@ -554,6 +618,7 @@
         els.pageInput.disabled = !pdfDoc;
         els.btnPrev.disabled = !pdfDoc || pageNum <= 1;
         els.btnNext.disabled = !pdfDoc || pageNum >= n;
+        updateReadingHud();
       }
 
       function clamp(v, min, max) {
@@ -568,12 +633,22 @@
           `translate3d(${viewX}px, ${viewY}px, 0) scale(${viewScale})`;
 
         els.stage.classList.toggle("reading-zoomed", viewScale > 1.01);
+        saveReadingState();
       }
 
       function resetView() {
         viewScale = 1;
         viewX = 0;
         viewY = 0;
+        applyViewTransform();
+      }
+
+      function restoreSavedView() {
+        const saved = readReadingState();
+        viewScale = saved.scale;
+        viewX = saved.x;
+        viewY = saved.y;
+        fitPanBounds();
         applyViewTransform();
       }
 
@@ -707,7 +782,12 @@
           renderPage(num);
           return;
         }
+        // 翻到新页时回到适合屏幕，避免把上一页的局部缩放带到下一页。
+        viewScale = 1;
+        viewX = 0;
+        viewY = 0;
         renderPage(num);
+        showReadingHud();
       }
 
       async function loadBook(book) {
@@ -948,6 +1028,21 @@
       document.addEventListener("fullscreenchange", syncFullscreenState);
       document.addEventListener("webkitfullscreenchange", syncFullscreenState);
 
+      // 手机连续阅读快捷控制
+      els.mobilePrev?.addEventListener("click", () => {
+        goTo(pageNum - 1);
+        showReadingHud();
+      });
+      els.mobileNext?.addEventListener("click", () => {
+        goTo(pageNum + 1);
+        showReadingHud();
+      });
+      els.mobileReset?.addEventListener("click", () => {
+        resetView();
+        showReadingHud();
+      });
+      els.stage.addEventListener("touchstart", showReadingHud, { passive: true });
+
       // 键盘
       window.addEventListener("keydown", (e) => {
         if (e.key === "ArrowLeft" || e.key === "PageUp") {
@@ -974,6 +1069,9 @@
           pinchStartDistance = touchDistance(e.touches[0], e.touches[1]);
           pinchStartScale = viewScale;
           pinchStartCenter = touchCenter(e.touches[0], e.touches[1]);
+          pinchLastScale = viewScale;
+          gestureMoved = true;
+          tapSuppressUntil = Date.now() + 350;
           isPanning = false;
           els.stage.classList.remove("grabbing");
           return;
@@ -1000,6 +1098,10 @@
           const next = pinchStartScale * ratio;
 
           setViewScale(next, center.x, center.y);
+          if (Math.abs(viewScale - pinchLastScale) > 0.01) {
+            showReadingHud();
+            pinchLastScale = viewScale;
+          }
 
           // 两指中心移动时同步平移，阅读时更自然
           if (pinchStartCenter) {
@@ -1020,6 +1122,9 @@
           fitPanBounds();
           applyViewTransform();
           isPanning = true;
+          gestureMoved = true;
+          tapSuppressUntil = Date.now() + 350;
+          showReadingHud();
         }
       }, { passive: false });
 
@@ -1090,6 +1195,7 @@
       // 点击左/右半屏翻页
       els.stage.addEventListener("click", (e) => {
         if (!pdfDoc || e.target.closest(".loading") || viewScale > 1.01) return;
+        if (Date.now() < tapSuppressUntil) return;
         const rect = els.stage.getBoundingClientRect();
         const x = e.clientX - rect.left;
         if (x < rect.width * 0.28) goTo(pageNum - 1);
@@ -1098,6 +1204,11 @@
 
       window.addEventListener("resize", () => {
         if (pdfDoc) renderPage(pageNum);
+      });
+
+      window.addEventListener("beforeunload", saveReadingState);
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) saveReadingState();
       });
 
       // ?file=xxx.pdf 直接打开；否则打开书架
