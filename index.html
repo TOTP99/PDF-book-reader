@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0a0a0c" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>TP 书架 · PDF 阅读器</title>
+    <style>
+      :root {
+        --bg: #0a0a0c;
+        --bg2: #121218;
+        --panel: #16161c;
+        --gold: #ffd700;
+        --gold-dim: rgba(255, 215, 0, 0.55);
+        --text: #e8e4d8;
+        --muted: rgba(232, 228, 216, 0.55);
+        --border: rgba(255, 215, 0, 0.28);
+        --danger: #ff6b6b;
+      }
+
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+          "Noto Sans SC", system-ui, sans-serif;
+        overflow: hidden;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ===== 顶栏 ===== */
+      .topbar {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: max(8px, env(safe-area-inset-top)) 10px 8px;
+        background: linear-gradient(180deg, #1a1a22 0%, #0e0e12 100%);
+        border-bottom: 1px solid var(--border);
+        z-index: 20;
+      }
+
+      .topbar .brand {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--gold);
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+      }
+
+      .topbar .title {
+        flex: 1;
+        min-width: 0;
+        font-size: 12px;
+        color: var(--text);
+        opacity: 0.9;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: center;
+      }
+
+      .btn {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: rgba(255, 215, 0, 0.06);
+        color: var(--gold);
+        border-radius: 8px;
+        min-width: 36px;
+        height: 34px;
+        padding: 0 10px;
+        font-size: 14px;
+        line-height: 1;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-family: inherit;
+        transition: background 0.15s, transform 0.1s, opacity 0.15s;
+      }
+      .btn:active {
+        transform: scale(0.94);
+        background: rgba(255, 215, 0, 0.14);
+      }
+      .btn:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .btn.primary {
+        background: linear-gradient(180deg, #3a2e10, #1a1408);
+        border-color: var(--gold-dim);
+        font-weight: 700;
+        font-size: 12px;
+      }
+
+      /* ===== 主阅读区 ===== */
+      .stage {
+        flex: 1;
+        min-height: 0;
+        position: relative;
+        background: #050506;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        touch-action: pan-y;
+      }
+
+      .stage.grabbing {
+        cursor: grabbing;
+      }
+
+      #viewer {
+        max-width: 100%;
+        max-height: 100%;
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
+        background: #111;
+      }
+
+      .hint {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 14px;
+        pointer-events: none;
+        padding: 24px;
+        text-align: center;
+      }
+      .hint strong {
+        color: var(--gold);
+        font-size: 16px;
+      }
+
+      /* ===== 底栏 ===== */
+      .bottombar {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 8px 10px max(10px, env(safe-area-inset-bottom));
+        background: linear-gradient(0deg, #1a1a22 0%, #0e0e12 100%);
+        border-top: 1px solid var(--border);
+        z-index: 20;
+      }
+
+      .page-input {
+        width: 52px;
+        height: 34px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #0c0c10;
+        color: var(--gold);
+        text-align: center;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+        font-family: inherit;
+      }
+      .page-total {
+        font-size: 12px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        min-width: 36px;
+      }
+
+      /* ===== 加载遮罩 ===== */
+      .loading {
+        position: absolute;
+        inset: 0;
+        z-index: 30;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: rgba(5, 5, 8, 0.88);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+      }
+      .loading.show {
+        display: flex;
+      }
+      .loading-label {
+        font-size: 13px;
+        color: var(--text);
+      }
+      .progress-track {
+        width: min(70vw, 280px);
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(255, 215, 0, 0.1);
+        border: 1px solid var(--border);
+        overflow: hidden;
+      }
+      .progress-bar {
+        height: 100%;
+        width: 0%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #c9971f, #ffd700 55%, #fff2b8);
+        box-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
+        transition: width 0.12s linear;
+      }
+      .progress-pct {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--gold);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ===== 书架抽屉 ===== */
+      .shelf {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.72);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.25s ease, visibility 0.25s ease;
+      }
+      .shelf.show {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+      }
+      .shelf-panel {
+        width: min(100%, 420px);
+        max-height: min(78vh, 560px);
+        overflow: auto;
+        background: linear-gradient(180deg, #1c1c24 0%, #101016 100%);
+        border: 1px solid var(--border);
+        border-radius: 16px 16px 0 0;
+        padding: 14px 14px max(16px, env(safe-area-inset-bottom));
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
+        transform: translateY(24px);
+        transition: transform 0.28s ease;
+      }
+      .shelf.show .shelf-panel {
+        transform: translateY(0);
+      }
+      .shelf-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        color: var(--gold);
+        font-weight: 700;
+        font-size: 15px;
+        letter-spacing: 0.5px;
+      }
+      .book-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .book-item {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 215, 0, 0.22);
+        background: rgba(255, 215, 0, 0.04);
+        color: var(--text);
+        text-align: left;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .book-item:active {
+        background: rgba(255, 215, 0, 0.1);
+        border-color: var(--gold-dim);
+      }
+      .book-item.missing {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .book-item .ico {
+        font-size: 22px;
+      }
+      .book-item .meta {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .book-item .t {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--gold);
+      }
+      .book-item .s {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .scanning,
+      .empty {
+        text-align: center;
+        padding: 28px 8px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      /* 全屏时略收顶底栏边距 */
+      :fullscreen .topbar,
+      :-webkit-full-screen .topbar {
+        padding-top: 8px;
+      }
+
+      @media (min-width: 720px) {
+        .shelf {
+          align-items: center;
+        }
+        .shelf-panel {
+          border-radius: 16px;
+          transform: scale(0.96);
+        }
+        .shelf.show .shelf-panel {
+          transform: scale(1);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <button type="button" class="btn primary" id="btn-shelf" title="书架">
+        📚 书架
+      </button>
+      <div class="title" id="doc-title">选择一本书开始阅读</div>
+      <button type="button" class="btn" id="btn-zoom-out" title="缩小">−</button>
+      <button type="button" class="btn" id="btn-zoom-in" title="放大">+</button>
+      <button type="button" class="btn" id="btn-fs" title="全屏">⛶</button>
+    </header>
+
+    <main class="stage" id="stage">
+      <canvas id="viewer" hidden></canvas>
+      <div class="hint" id="hint">
+        <strong>TP 暗色 PDF 阅读器</strong>
+        <span>点左上角「书架」选书 · 左右滑动翻页 · 双击切换全屏</span>
+      </div>
+      <div class="loading" id="loading" aria-live="polite">
+        <div class="loading-label" id="loading-label">正在加载…</div>
+        <div class="progress-track">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="progress-pct" id="progress-pct">0%</div>
+      </div>
+    </main>
+
+    <footer class="bottombar">
+      <button type="button" class="btn" id="btn-prev" title="上一页" disabled>
+        ‹ 上一页
+      </button>
+      <input
+        class="page-input"
+        id="page-input"
+        type="number"
+        min="1"
+        value="1"
+        inputmode="numeric"
+        aria-label="页码"
+        disabled
+      />
+      <span class="page-total" id="page-total">/ —</span>
+      <button type="button" class="btn" id="btn-next" title="下一页" disabled>
+        下一页 ›
+      </button>
+    </footer>
+
+    <div class="shelf" id="shelf" aria-hidden="true">
+      <div class="shelf-panel" role="dialog" aria-labelledby="shelf-title">
+        <div class="shelf-head">
+          <span id="shelf-title">📚 选择书籍</span>
+          <button type="button" class="btn" id="btn-shelf-close" aria-label="关闭">
+            ✕
+          </button>
+        </div>
+        <ul class="book-list" id="book-list"></ul>
+        <div class="empty" id="book-empty" hidden>暂无可用书籍（请把 PDF 放在同目录）</div>
+      </div>
+    </div>
+
+    <!-- PDF.js -->
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs" type="module"></script>
+    <script type="module">
+      import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs";
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs";
+
+      const BOOKS = [
+        { file: "anne-of-green-gables.pdf", title: "Anne of Green Gables", sub: "绿山墙的安妮" },
+        { file: "outlaws_of_the_marsh.pdf", title: "Outlaws of the Marsh", sub: "水浒传" },
+        { file: "jourwest.pdf", title: "Journey to the West", sub: "西游记" },
+        { file: "4.pdf", title: "Book 4", sub: "4.pdf" },
+        { file: "5.pdf", title: "Book 5", sub: "5.pdf" },
+        { file: "6.pdf", title: "Book 6", sub: "6.pdf" },
+        { file: "7.pdf", title: "Book 7", sub: "7.pdf" },
+      ];
+
+      // PDF 与阅读器同目录，或通过 ?file= 指定
+      function bookUrl(file) {
+        // 优先同目录；若部署在子路径 /pdf-reader/，也支持上级目录 ../
+        return new URL(file, document.baseURI).href;
+      }
+
+      const els = {
+        stage: document.getElementById("stage"),
+        canvas: document.getElementById("viewer"),
+        hint: document.getElementById("hint"),
+        loading: document.getElementById("loading"),
+        loadingLabel: document.getElementById("loading-label"),
+        progressBar: document.getElementById("progress-bar"),
+        progressPct: document.getElementById("progress-pct"),
+        docTitle: document.getElementById("doc-title"),
+        pageInput: document.getElementById("page-input"),
+        pageTotal: document.getElementById("page-total"),
+        btnPrev: document.getElementById("btn-prev"),
+        btnNext: document.getElementById("btn-next"),
+        btnZoomIn: document.getElementById("btn-zoom-in"),
+        btnZoomOut: document.getElementById("btn-zoom-out"),
+        btnFs: document.getElementById("btn-fs"),
+        btnShelf: document.getElementById("btn-shelf"),
+        btnShelfClose: document.getElementById("btn-shelf-close"),
+        shelf: document.getElementById("shelf"),
+        bookList: document.getElementById("book-list"),
+        bookEmpty: document.getElementById("book-empty"),
+      };
+
+      let pdfDoc = null;
+      let pageNum = 1;
+      let scale = 1;
+      let rendering = false;
+      let pendingPage = null;
+      let currentBook = null;
+      let availableCache = null;
+
+      function setProgress(p) {
+        p = Math.max(0, Math.min(100, p | 0));
+        els.progressBar.style.width = p + "%";
+        els.progressPct.textContent = p + "%";
+      }
+
+      function showLoading(label) {
+        els.loading.classList.add("show");
+        els.loadingLabel.textContent = label || "正在加载…";
+        setProgress(0);
+      }
+
+      function hideLoading() {
+        els.loading.classList.remove("show");
+      }
+
+      function updateNav() {
+        const n = pdfDoc ? pdfDoc.numPages : 0;
+        els.pageTotal.textContent = n ? "/ " + n : "/ —";
+        els.pageInput.value = pageNum;
+        els.pageInput.max = n || 1;
+        els.pageInput.disabled = !pdfDoc;
+        els.btnPrev.disabled = !pdfDoc || pageNum <= 1;
+        els.btnNext.disabled = !pdfDoc || pageNum >= n;
+      }
+
+      async function renderPage(num) {
+        if (!pdfDoc) return;
+        if (rendering) {
+          pendingPage = num;
+          return;
+        }
+        rendering = true;
+        try {
+          const page = await pdfDoc.getPage(num);
+          const base = page.getViewport({ scale: 1 });
+          const stageW = els.stage.clientWidth - 16;
+          const stageH = els.stage.clientHeight - 16;
+          const fit = Math.min(stageW / base.width, stageH / base.height);
+          const viewport = page.getViewport({ scale: fit * scale });
+
+          const canvas = els.canvas;
+          const ctx = canvas.getContext("2d", { alpha: false });
+          const outputScale = Math.min(window.devicePixelRatio || 1, 2);
+          canvas.width = Math.floor(viewport.width * outputScale);
+          canvas.height = Math.floor(viewport.height * outputScale);
+          canvas.style.width = Math.floor(viewport.width) + "px";
+          canvas.style.height = Math.floor(viewport.height) + "px";
+          canvas.hidden = false;
+          els.hint.hidden = true;
+
+          const transform =
+            outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+
+          // 暗色：先铺底，再渲染页面
+          ctx.fillStyle = "#111111";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          await page.render({
+            canvasContext: ctx,
+            viewport,
+            transform,
+          }).promise;
+
+          pageNum = num;
+          updateNav();
+          try {
+            localStorage.setItem(
+              "tp_pdf_pos_" + (currentBook && currentBook.file),
+              String(pageNum)
+            );
+          } catch (e) {}
+        } catch (err) {
+          console.error(err);
+          els.loadingLabel.textContent = "渲染失败";
+        } finally {
+          rendering = false;
+          if (pendingPage !== null && pendingPage !== pageNum) {
+            const p = pendingPage;
+            pendingPage = null;
+            renderPage(p);
+          } else {
+            pendingPage = null;
+          }
+        }
+      }
+
+      function goTo(num) {
+        if (!pdfDoc) return;
+        num = Math.max(1, Math.min(pdfDoc.numPages, num | 0));
+        if (num === pageNum && !rendering) {
+          renderPage(num);
+          return;
+        }
+        renderPage(num);
+      }
+
+      async function loadBook(book) {
+        currentBook = book;
+        els.docTitle.textContent = book.title;
+        showLoading("正在加载「" + book.title + "」…");
+        closeShelf();
+
+        // 销毁旧文档
+        if (pdfDoc) {
+          try {
+            await pdfDoc.destroy();
+          } catch (e) {}
+          pdfDoc = null;
+        }
+
+        const url = bookUrl(book.file);
+
+        try {
+          // 带进度的下载
+          const data = await fetchWithProgress(url, (p) => setProgress(p));
+          setProgress(100);
+          els.loadingLabel.textContent = "解析中…";
+
+          const loadingTask = pdfjsLib.getDocument({ data });
+          pdfDoc = await loadingTask.promise;
+
+          let start = 1;
+          try {
+            const saved = parseInt(
+              localStorage.getItem("tp_pdf_pos_" + book.file) || "1",
+              10
+            );
+            if (saved >= 1 && saved <= pdfDoc.numPages) start = saved;
+          } catch (e) {}
+
+          scale = 1;
+          hideLoading();
+          await renderPage(start);
+        } catch (err) {
+          console.error(err);
+          els.loadingLabel.textContent =
+            "加载失败：" + (err && err.message ? err.message : "未知错误");
+          setProgress(0);
+          setTimeout(hideLoading, 1600);
+          els.hint.hidden = false;
+          els.canvas.hidden = true;
+          els.docTitle.textContent = "选择一本书开始阅读";
+          pdfDoc = null;
+          updateNav();
+        }
+      }
+
+      function fetchWithProgress(url, onProgress) {
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("GET", url, true);
+          xhr.responseType = "arraybuffer";
+          xhr.onprogress = (e) => {
+            if (e.lengthComputable && e.total > 0) {
+              onProgress(Math.floor((e.loaded / e.total) * 100));
+            } else if (e.loaded > 0) {
+              onProgress(Math.min(90, 8 + Math.floor(e.loaded / 80000)));
+            }
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 400) {
+              onProgress(100);
+              resolve(new Uint8Array(xhr.response));
+            } else {
+              reject(new Error("HTTP " + xhr.status));
+            }
+          };
+          xhr.onerror = () => reject(new Error("网络错误"));
+          xhr.ontimeout = () => reject(new Error("超时"));
+          xhr.send();
+        });
+      }
+
+      function probe(file) {
+        return new Promise((resolve) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("HEAD", bookUrl(file), true);
+          xhr.timeout = 6000;
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 400) resolve(true);
+            else if (xhr.status === 405 || xhr.status === 501) {
+              const g = new XMLHttpRequest();
+              g.open("GET", bookUrl(file), true);
+              g.timeout = 6000;
+              g.onprogress = (e) => {
+                if (e.loaded > 0) {
+                  g.abort();
+                  resolve(true);
+                }
+              };
+              g.onload = () => resolve(g.status >= 200 && g.status < 400);
+              g.onerror = g.ontimeout = () => resolve(false);
+              g.send();
+            } else resolve(false);
+          };
+          xhr.onerror = xhr.ontimeout = () => resolve(false);
+          xhr.send();
+        });
+      }
+
+      async function openShelf() {
+        els.shelf.classList.add("show");
+        els.shelf.setAttribute("aria-hidden", "false");
+        els.bookList.innerHTML =
+          '<li class="scanning">正在扫描可用书籍…</li>';
+        els.bookEmpty.hidden = true;
+
+        if (!availableCache) {
+          const results = await Promise.all(
+            BOOKS.map(async (b) => ({ book: b, ok: await probe(b.file) }))
+          );
+          availableCache = results;
+        }
+
+        const okList = availableCache.filter((x) => x.ok).map((x) => x.book);
+        const missList = availableCache.filter((x) => !x.ok).map((x) => x.book);
+
+        els.bookList.innerHTML = "";
+        if (!okList.length) {
+          els.bookEmpty.hidden = false;
+        } else {
+          okList.forEach((book) => {
+            const li = document.createElement("li");
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "book-item";
+            btn.innerHTML =
+              '<span class="ico">📖</span><span class="meta"><span class="t"></span><span class="s"></span></span>';
+            btn.querySelector(".t").textContent = book.title;
+            btn.querySelector(".s").textContent = book.sub + " · " + book.file;
+            btn.addEventListener("click", () => loadBook(book));
+            li.appendChild(btn);
+            els.bookList.appendChild(li);
+          });
+        }
+        // 缺书也列出来但禁用，方便知道还缺哪些
+        missList.forEach((book) => {
+          const li = document.createElement("li");
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "book-item missing";
+          btn.disabled = true;
+          btn.innerHTML =
+            '<span class="ico">📕</span><span class="meta"><span class="t"></span><span class="s"></span></span>';
+          btn.querySelector(".t").textContent = book.title;
+          btn.querySelector(".s").textContent = "暂缺 · " + book.file;
+          li.appendChild(btn);
+          els.bookList.appendChild(li);
+        });
+      }
+
+      function closeShelf() {
+        els.shelf.classList.remove("show");
+        els.shelf.setAttribute("aria-hidden", "true");
+      }
+
+      // —— 事件 ——
+      els.btnShelf.addEventListener("click", openShelf);
+      els.btnShelfClose.addEventListener("click", closeShelf);
+      els.shelf.addEventListener("click", (e) => {
+        if (e.target === els.shelf) closeShelf();
+      });
+
+      els.btnPrev.addEventListener("click", () => goTo(pageNum - 1));
+      els.btnNext.addEventListener("click", () => goTo(pageNum + 1));
+      els.pageInput.addEventListener("change", () => {
+        goTo(parseInt(els.pageInput.value, 10) || 1);
+      });
+
+      els.btnZoomIn.addEventListener("click", () => {
+        scale = Math.min(3, Math.round((scale + 0.15) * 100) / 100);
+        renderPage(pageNum);
+      });
+      els.btnZoomOut.addEventListener("click", () => {
+        scale = Math.max(0.5, Math.round((scale - 0.15) * 100) / 100);
+        renderPage(pageNum);
+      });
+
+      els.btnFs.addEventListener("click", toggleFullscreen);
+      els.stage.addEventListener("dblclick", toggleFullscreen);
+
+      function toggleFullscreen() {
+        const root = document.documentElement;
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          const req =
+            root.requestFullscreen || root.webkitRequestFullscreen;
+          if (req) req.call(root);
+        } else {
+          const exit =
+            document.exitFullscreen || document.webkitExitFullscreen;
+          if (exit) exit.call(document);
+        }
+      }
+
+      // 键盘
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft" || e.key === "PageUp") {
+          e.preventDefault();
+          goTo(pageNum - 1);
+        } else if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") {
+          e.preventDefault();
+          goTo(pageNum + 1);
+        } else if (e.key === "Escape") {
+          closeShelf();
+        } else if (e.key === "f" || e.key === "F") {
+          toggleFullscreen();
+        }
+      });
+
+      // 触摸左右滑翻页
+      let touchX = 0;
+      let touchY = 0;
+      els.stage.addEventListener(
+        "touchstart",
+        (e) => {
+          if (!e.touches[0]) return;
+          touchX = e.touches[0].clientX;
+          touchY = e.touches[0].clientY;
+        },
+        { passive: true }
+      );
+      els.stage.addEventListener(
+        "touchend",
+        (e) => {
+          if (!e.changedTouches[0] || !pdfDoc) return;
+          const dx = e.changedTouches[0].clientX - touchX;
+          const dy = e.changedTouches[0].clientY - touchY;
+          if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) return;
+          if (dx < 0) goTo(pageNum + 1);
+          else goTo(pageNum - 1);
+        },
+        { passive: true }
+      );
+
+      // 点击左/右半屏翻页
+      els.stage.addEventListener("click", (e) => {
+        if (!pdfDoc || e.target.closest(".loading")) return;
+        const rect = els.stage.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        if (x < rect.width * 0.28) goTo(pageNum - 1);
+        else if (x > rect.width * 0.72) goTo(pageNum + 1);
+      });
+
+      window.addEventListener("resize", () => {
+        if (pdfDoc) renderPage(pageNum);
+      });
+
+      // ?file=xxx.pdf 直接打开；否则打开书架
+      const params = new URLSearchParams(location.search);
+      const fileParam = params.get("file");
+      if (fileParam) {
+        const hit =
+          BOOKS.find((b) => b.file === fileParam) || {
+            file: fileParam,
+            title: fileParam.replace(/\.pdf$/i, ""),
+            sub: fileParam,
+          };
+        loadBook(hit);
+      } else {
+        // 首次进入：稍等再弹书架，避免闪
+        setTimeout(openShelf, 200);
+      }
+    </script>
+  </body>
+</html>
