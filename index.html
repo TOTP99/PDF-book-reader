@@ -515,19 +515,8 @@
       let pinchStartScale = 1;
       let pinchStartCenter = null;
 
-      // 手势状态：双指缩放
-      let pinchStartDistance = 0;
-      let pinchStartScale = 1;
-      let isPinching = false;
-
       function clampScale(value) {
         return Math.max(0.5, Math.min(4, value));
-      }
-
-      function touchDistance(t1, t2) {
-        const dx = t2.clientX - t1.clientX;
-        const dy = t2.clientY - t1.clientY;
-        return Math.hypot(dx, dy);
       }
 
       function setProgress(p) {
@@ -747,6 +736,14 @@
           scale = 1;
           hideLoading();
           await renderPage(start);
+
+          // 记住最近阅读的书籍，下次打开自动恢复
+          try {
+            localStorage.setItem(
+              "tp_last_book",
+              JSON.stringify({ file: book.file, title: book.title, sub: book.sub })
+            );
+          } catch (e) {}
         } catch (err) {
           console.error(err);
           els.loadingLabel.textContent =
@@ -758,6 +755,7 @@
           els.docTitle.textContent = "";
           pdfDoc = null;
           updateNav();
+          setTimeout(openShelf, 300);
         }
       }
 
@@ -1100,7 +1098,7 @@
         if (pdfDoc) renderPage(pageNum);
       });
 
-      // ?file=xxx.pdf 直接打开；否则打开书架
+      // ?file=xxx.pdf 直接打开；否则尝试恢复上次阅读的书籍；都没有才弹书架
       const params = new URLSearchParams(location.search);
       const fileParam = params.get("file");
       if (fileParam) {
@@ -1112,8 +1110,19 @@
           };
         loadBook(hit);
       } else {
-        // 首次进入：稍等再弹书架，避免闪
-        setTimeout(openShelf, 200);
+        let lastBook = null;
+        try {
+          const saved = localStorage.getItem("tp_last_book");
+          if (saved) lastBook = JSON.parse(saved);
+        } catch (e) {}
+
+        if (lastBook && lastBook.file) {
+          const hit = BOOKS.find((b) => b.file === lastBook.file) || lastBook;
+          loadBook(hit).catch(() => {});
+        } else {
+          // 从未读过任何书：稍等再弹书架，避免闪
+          setTimeout(openShelf, 200);
+        }
       }
     </script>
   </body>
