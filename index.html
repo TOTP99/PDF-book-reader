@@ -128,15 +128,10 @@
       }
 
       #viewer {
-        max-width: none;
-        max-height: none;
+        max-width: 100%;
+        max-height: 100%;
         box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
         background: #111;
-        transform-origin: 0 0;
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-user-drag: none;
-        touch-action: none;
       }
 
       .hint {
@@ -404,12 +399,6 @@
     <main class="stage" id="stage">
       <canvas id="viewer" hidden></canvas>
       <div class="hint" id="hint" hidden></div>
-      <div class="mobile-reading-hud" id="mobile-reading-hud" aria-hidden="true">
-        <button class="mini-btn" id="mobile-prev" type="button" aria-label="上一页">‹</button>
-        <span class="mini-page" id="mobile-page">1 / —</span>
-        <button class="mini-btn" id="mobile-next" type="button" aria-label="下一页">›</button>
-        <button class="mini-btn" id="mobile-reset" type="button" aria-label="恢复适合屏幕">↺</button>
-      </div>
       <div class="loading" id="loading" aria-live="polite">
         <div class="loading-label" id="loading-label">正在加载…</div>
         <div class="progress-track">
@@ -491,11 +480,6 @@
         btnZoomIn: document.getElementById("btn-zoom-in"),
         btnZoomOut: document.getElementById("btn-zoom-out"),
         btnFs: document.getElementById("btn-fs"),
-        mobileHud: document.getElementById("mobile-reading-hud"),
-        mobilePage: document.getElementById("mobile-page"),
-        mobilePrev: document.getElementById("mobile-prev"),
-        mobileNext: document.getElementById("mobile-next"),
-        mobileReset: document.getElementById("mobile-reset"),
         btnShelf: document.getElementById("btn-shelf"),
         btnShelfClose: document.getElementById("btn-shelf-close"),
         shelf: document.getElementById("shelf"),
@@ -511,26 +495,6 @@
       let currentBook = null;
       let availableCache = null;
 
-      // 阅读缩放/拖动状态
-      let viewScale = 1;
-      let viewX = 0;
-      let viewY = 0;
-      let baseCanvasW = 0;
-      let baseCanvasH = 0;
-      let panX = 0;
-      let panY = 0;
-      let lastPanX = 0;
-      let lastPanY = 0;
-      let isPanning = false;
-      let pinchStartDistance = 0;
-      let pinchStartScale = 1;
-      let pinchStartCenter = null;
-      let pinchLastScale = 1;
-      let gestureMoved = false;
-      let tapSuppressUntil = 0;
-      let hudTimer = null;
-      let continuousMode = true;
-
       // 手势状态：双指缩放
       let pinchStartDistance = 0;
       let pinchStartScale = 1;
@@ -544,54 +508,6 @@
         const dx = t2.clientX - t1.clientX;
         const dy = t2.clientY - t1.clientY;
         return Math.hypot(dx, dy);
-      }
-
-      function storageKey(suffix) {
-        return "tp_pdf_" + suffix + "_" + (currentBook && currentBook.file);
-      }
-
-      function saveReadingState() {
-        if (!currentBook) return;
-        try {
-          localStorage.setItem(storageKey("page"), String(pageNum));
-          localStorage.setItem(storageKey("scale"), String(viewScale));
-          localStorage.setItem(storageKey("x"), String(viewX));
-          localStorage.setItem(storageKey("y"), String(viewY));
-        } catch (e) {}
-      }
-
-      function readReadingState() {
-        const state = { page: 1, scale: 1, x: 0, y: 0 };
-        if (!currentBook) return state;
-        try {
-          const p = parseInt(localStorage.getItem(storageKey("page")) || "1", 10);
-          const s = parseFloat(localStorage.getItem(storageKey("scale")) || "1");
-          const x = parseFloat(localStorage.getItem(storageKey("x")) || "0");
-          const y = parseFloat(localStorage.getItem(storageKey("y")) || "0");
-          if (Number.isFinite(p) && p >= 1) state.page = p;
-          if (Number.isFinite(s)) state.scale = clamp(s, 1, 4);
-          if (Number.isFinite(x)) state.x = x;
-          if (Number.isFinite(y)) state.y = y;
-        } catch (e) {}
-        return state;
-      }
-
-      function showReadingHud() {
-        if (!els.mobileHud) return;
-        els.mobileHud.classList.add("show");
-        els.mobileHud.setAttribute("aria-hidden", "false");
-        clearTimeout(hudTimer);
-        hudTimer = setTimeout(() => {
-          els.mobileHud.classList.remove("show");
-          els.mobileHud.setAttribute("aria-hidden", "true");
-        }, 1800);
-      }
-
-      function updateReadingHud() {
-        if (!els.mobilePage) return;
-        els.mobilePage.textContent =
-          `${pageNum} / ${pdfDoc ? pdfDoc.numPages : "—"}`;
-        els.stage.classList.add("mobile-reading");
       }
 
       function setProgress(p) {
@@ -618,96 +534,6 @@
         els.pageInput.disabled = !pdfDoc;
         els.btnPrev.disabled = !pdfDoc || pageNum <= 1;
         els.btnNext.disabled = !pdfDoc || pageNum >= n;
-        updateReadingHud();
-      }
-
-      function clamp(v, min, max) {
-        return Math.max(min, Math.min(max, v));
-      }
-
-      function applyViewTransform() {
-        const canvas = els.canvas;
-        if (canvas.hidden) return;
-
-        canvas.style.transform =
-          `translate3d(${viewX}px, ${viewY}px, 0) scale(${viewScale})`;
-
-        els.stage.classList.toggle("reading-zoomed", viewScale > 1.01);
-        saveReadingState();
-      }
-
-      function resetView() {
-        viewScale = 1;
-        viewX = 0;
-        viewY = 0;
-        applyViewTransform();
-      }
-
-      function restoreSavedView() {
-        const saved = readReadingState();
-        viewScale = saved.scale;
-        viewX = saved.x;
-        viewY = saved.y;
-        fitPanBounds();
-        applyViewTransform();
-      }
-
-      function fitPanBounds() {
-        const stageW = els.stage.clientWidth;
-        const stageH = els.stage.clientHeight;
-        const w = baseCanvasW * viewScale;
-        const h = baseCanvasH * viewScale;
-
-        if (w <= stageW) {
-          viewX = (stageW - w) / 2;
-        } else {
-          const minX = stageW - w;
-          viewX = clamp(viewX, minX, 0);
-        }
-
-        if (h <= stageH) {
-          viewY = (stageH - h) / 2;
-        } else {
-          const minY = stageH - h;
-          viewY = clamp(viewY, minY, 0);
-        }
-      }
-
-      function setViewScale(nextScale, anchorX, anchorY) {
-        const oldScale = viewScale;
-        const newScale = clamp(nextScale, 1, 4);
-        if (Math.abs(newScale - oldScale) < 0.001) return;
-
-        // 保持手指/鼠标锚点下的内容位置不跳动
-        const localX = (anchorX - viewX) / oldScale;
-        const localY = (anchorY - viewY) / oldScale;
-        viewScale = newScale;
-        viewX = anchorX - localX * newScale;
-        viewY = anchorY - localY * newScale;
-
-        fitPanBounds();
-        applyViewTransform();
-      }
-
-      function stagePoint(clientX, clientY) {
-        const r = els.stage.getBoundingClientRect();
-        return { x: clientX - r.left, y: clientY - r.top };
-      }
-
-      function touchDistance(a, b) {
-        return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
-      }
-
-      function touchCenter(a, b) {
-        const r = els.stage.getBoundingClientRect();
-        return {
-          x: (a.clientX + b.clientX) / 2 - r.left,
-          y: (a.clientY + b.clientY) / 2 - r.top
-        };
-      }
-
-      function resetReadingViewport() {
-        resetView();
       }
 
       async function renderPage(num) {
@@ -733,10 +559,6 @@
           canvas.style.width = Math.floor(viewport.width) + "px";
           canvas.style.height = Math.floor(viewport.height) + "px";
           canvas.hidden = false;
-
-          baseCanvasW = Math.floor(viewport.width);
-          baseCanvasH = Math.floor(viewport.height);
-          resetReadingViewport();
           els.hint.hidden = true;
 
           const transform =
@@ -782,12 +604,7 @@
           renderPage(num);
           return;
         }
-        // 翻到新页时回到适合屏幕，避免把上一页的局部缩放带到下一页。
-        viewScale = 1;
-        viewX = 0;
-        viewY = 0;
         renderPage(num);
-        showReadingHud();
       }
 
       async function loadBook(book) {
@@ -1028,21 +845,6 @@
       document.addEventListener("fullscreenchange", syncFullscreenState);
       document.addEventListener("webkitfullscreenchange", syncFullscreenState);
 
-      // 手机连续阅读快捷控制
-      els.mobilePrev?.addEventListener("click", () => {
-        goTo(pageNum - 1);
-        showReadingHud();
-      });
-      els.mobileNext?.addEventListener("click", () => {
-        goTo(pageNum + 1);
-        showReadingHud();
-      });
-      els.mobileReset?.addEventListener("click", () => {
-        resetView();
-        showReadingHud();
-      });
-      els.stage.addEventListener("touchstart", showReadingHud, { passive: true });
-
       // 键盘
       window.addEventListener("keydown", (e) => {
         if (e.key === "ArrowLeft" || e.key === "PageUp") {
@@ -1058,144 +860,97 @@
         }
       });
 
-      // ===== 手机阅读手势 =====
-      // 1 指：正常状态左右滑动翻页；放大后拖动页面
-      // 2 指：捏合缩放，并以两指中心为缩放锚点
-      els.stage.addEventListener("touchstart", (e) => {
-        if (!pdfDoc || e.target.closest(".loading")) return;
+      // 触摸左右滑翻页 + 手机双指缩放
+      let touchX = 0;
+      let touchY = 0;
+      els.stage.addEventListener(
+        "touchstart",
+        (e) => {
+          if (!pdfDoc) return;
 
-        if (e.touches.length >= 2) {
-          e.preventDefault();
-          pinchStartDistance = touchDistance(e.touches[0], e.touches[1]);
-          pinchStartScale = viewScale;
-          pinchStartCenter = touchCenter(e.touches[0], e.touches[1]);
-          pinchLastScale = viewScale;
-          gestureMoved = true;
-          tapSuppressUntil = Date.now() + 350;
-          isPanning = false;
-          els.stage.classList.remove("grabbing");
-          return;
-        }
+          if (e.touches.length >= 2) {
+            isPinching = true;
+            pinchStartDistance = touchDistance(e.touches[0], e.touches[1]);
+            pinchStartScale = scale;
+            e.preventDefault();
+            return;
+          }
 
-        if (e.touches.length === 1) {
-          const p = stagePoint(e.touches[0].clientX, e.touches[0].clientY);
-          panX = p.x;
-          panY = p.y;
-          lastPanX = viewX;
-          lastPanY = viewY;
-          isPanning = viewScale > 1.01;
-        }
-      }, { passive: false });
+          if (e.touches[0]) {
+            touchX = e.touches[0].clientX;
+            touchY = e.touches[0].clientY;
+          }
+        },
+        { passive: false }
+      );
 
-      els.stage.addEventListener("touchmove", (e) => {
-        if (!pdfDoc) return;
+      els.stage.addEventListener(
+        "touchmove",
+        (e) => {
+          if (!pdfDoc || e.touches.length < 2) return;
 
-        if (e.touches.length >= 2 && pinchStartDistance > 0) {
-          e.preventDefault();
+          isPinching = true;
           const distance = touchDistance(e.touches[0], e.touches[1]);
-          const center = touchCenter(e.touches[0], e.touches[1]);
-          const ratio = distance / pinchStartDistance;
-          const next = pinchStartScale * ratio;
-
-          setViewScale(next, center.x, center.y);
-          if (Math.abs(viewScale - pinchLastScale) > 0.01) {
-            showReadingHud();
-            pinchLastScale = viewScale;
+          if (!pinchStartDistance) {
+            pinchStartDistance = distance;
+            pinchStartScale = scale;
           }
 
-          // 两指中心移动时同步平移，阅读时更自然
-          if (pinchStartCenter) {
-            viewX += center.x - pinchStartCenter.x;
-            viewY += center.y - pinchStartCenter.y;
-            fitPanBounds();
-            applyViewTransform();
-          }
-          pinchStartCenter = center;
-          return;
-        }
+          const nextScale = clampScale(
+            pinchStartScale * (distance / pinchStartDistance)
+          );
 
-        if (e.touches.length === 1 && viewScale > 1.01) {
+          // 避免极小变化频繁重绘。
+          if (Math.abs(nextScale - scale) >= 0.02) {
+            scale = Math.round(nextScale * 100) / 100;
+            renderPage(pageNum);
+          }
+
           e.preventDefault();
-          const p = stagePoint(e.touches[0].clientX, e.touches[0].clientY);
-          viewX = lastPanX + (p.x - panX);
-          viewY = lastPanY + (p.y - panY);
-          fitPanBounds();
-          applyViewTransform();
-          isPanning = true;
-          gestureMoved = true;
-          tapSuppressUntil = Date.now() + 350;
-          showReadingHud();
-        }
-      }, { passive: false });
+        },
+        { passive: false }
+      );
 
-      els.stage.addEventListener("touchend", (e) => {
-        if (!pdfDoc) return;
+      els.stage.addEventListener(
+        "touchend",
+        (e) => {
+          if (!pdfDoc) return;
 
-        if (e.touches.length < 2) {
+          if (e.touches.length < 2) {
+            pinchStartDistance = 0;
+            pinchStartScale = scale;
+          }
+
+          if (isPinching) {
+            // 双指结束后不触发单指滑页。
+            if (e.touches.length === 0) {
+              isPinching = false;
+            }
+            return;
+          }
+
+          if (!e.changedTouches[0]) return;
+          const dx = e.changedTouches[0].clientX - touchX;
+          const dy = e.changedTouches[0].clientY - touchY;
+          if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) return;
+          if (dx < 0) goTo(pageNum + 1);
+          else goTo(pageNum - 1);
+        },
+        { passive: true }
+      );
+
+      els.stage.addEventListener(
+        "touchcancel",
+        () => {
           pinchStartDistance = 0;
-          pinchStartCenter = null;
-        }
-
-        // 放大状态下单指结束不翻页，避免拖动误翻页
-        if (viewScale > 1.01) {
-          isPanning = false;
-          els.stage.classList.remove("grabbing");
-          return;
-        }
-
-        if (e.changedTouches.length !== 1) return;
-        const t = e.changedTouches[0];
-        const dx = t.clientX - panX;
-        const dy = t.clientY - panY;
-
-        if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) return;
-        if (dx < 0) goTo(pageNum + 1);
-        else goTo(pageNum - 1);
-      }, { passive: false });
-
-      els.stage.addEventListener("touchcancel", () => {
-        pinchStartDistance = 0;
-        pinchStartCenter = null;
-        isPanning = false;
-        els.stage.classList.remove("grabbing");
-      }, { passive: true });
-
-      // 桌面端鼠标拖动（放大后）
-      els.stage.addEventListener("mousedown", (e) => {
-        if (!pdfDoc || viewScale <= 1.01 || e.button !== 0) return;
-        panX = e.clientX;
-        panY = e.clientY;
-        lastPanX = viewX;
-        lastPanY = viewY;
-        isPanning = true;
-        els.stage.classList.add("grabbing");
-      });
-
-      window.addEventListener("mousemove", (e) => {
-        if (!isPanning || viewScale <= 1.01) return;
-        viewX = lastPanX + (e.clientX - panX);
-        viewY = lastPanY + (e.clientY - panY);
-        fitPanBounds();
-        applyViewTransform();
-      });
-
-      window.addEventListener("mouseup", () => {
-        isPanning = false;
-        els.stage.classList.remove("grabbing");
-      });
-
-      // 鼠标滚轮缩放，方便电脑阅读
-      els.stage.addEventListener("wheel", (e) => {
-        if (!pdfDoc || (!e.ctrlKey && !e.metaKey)) return;
-        e.preventDefault();
-        const p = stagePoint(e.clientX, e.clientY);
-        setViewScale(viewScale * (e.deltaY < 0 ? 1.12 : 0.89), p.x, p.y);
-      }, { passive: false });
+          isPinching = false;
+        },
+        { passive: true }
+      );
 
       // 点击左/右半屏翻页
       els.stage.addEventListener("click", (e) => {
-        if (!pdfDoc || e.target.closest(".loading") || viewScale > 1.01) return;
-        if (Date.now() < tapSuppressUntil) return;
+        if (!pdfDoc || e.target.closest(".loading")) return;
         const rect = els.stage.getBoundingClientRect();
         const x = e.clientX - rect.left;
         if (x < rect.width * 0.28) goTo(pageNum - 1);
@@ -1204,11 +959,6 @@
 
       window.addEventListener("resize", () => {
         if (pdfDoc) renderPage(pageNum);
-      });
-
-      window.addEventListener("beforeunload", saveReadingState);
-      document.addEventListener("visibilitychange", () => {
-        if (document.hidden) saveReadingState();
       });
 
       // ?file=xxx.pdf 直接打开；否则打开书架
