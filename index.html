@@ -146,95 +146,6 @@
         touch-action: none;
       }
 
-      /* ===== PDF.js 文字层：透明文字叠在 canvas 上方，用于选中/复制 ===== */
-      .textLayer {
-        position: absolute;
-        inset: 0;
-        overflow: hidden;
-        line-height: 1;
-        opacity: 1;
-        /* 手机上允许长按选字（外层 .stage 默认 touch-action:none 会被这里覆盖） */
-        touch-action: auto;
-      }
-      .textLayer span,
-      .textLayer br {
-        color: transparent;
-        position: absolute;
-        white-space: pre;
-        cursor: text;
-        transform-origin: 0% 0%;
-        user-select: text;
-        -webkit-user-select: text;
-      }
-      .textLayer ::selection {
-        background: rgba(255, 215, 0, 0.35);
-      }
-
-      /* ===== 选词翻译 / 发音小卡片 ===== */
-      .word-popup {
-        position: fixed;
-        z-index: 50;
-        width: min(84vw, 300px);
-        background: linear-gradient(180deg, #1c1c24 0%, #101016 100%);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 10px 12px;
-        box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
-      }
-      .word-popup-original {
-        font-size: 13px;
-        font-weight: 700;
-        color: var(--gold);
-        word-break: break-word;
-        margin-bottom: 8px;
-      }
-      /* 四语言切换：中 / EN / 日 / FR，高亮当前译文语言 */
-      .word-popup-langs {
-        display: flex;
-        gap: 4px;
-        margin-bottom: 8px;
-      }
-      .lang-btn {
-        flex: 1;
-        appearance: none;
-        border: 1px solid var(--border);
-        background: rgba(255, 215, 0, 0.04);
-        color: var(--muted);
-        border-radius: 6px;
-        padding: 4px 0;
-        font-size: 11px;
-        font-family: inherit;
-        cursor: pointer;
-      }
-      .lang-btn.active {
-        background: linear-gradient(180deg, #3a2e10, #1a1408);
-        border-color: var(--gold-dim);
-        color: var(--gold);
-        font-weight: 700;
-      }
-      .word-popup-translation {
-        font-size: 13px;
-        color: var(--text);
-        word-break: break-word;
-        margin-bottom: 8px;
-        min-height: 1.4em;
-      }
-      .word-popup-translation.error {
-        color: var(--danger);
-      }
-      .word-popup-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        justify-content: flex-end;
-      }
-      .word-popup-actions .btn-link {
-        padding: 4px 8px;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        color: var(--gold);
-      }
-
       .hint {
         position: absolute;
         inset: 0;
@@ -492,6 +403,31 @@
         max-height: none;
       }
 
+      /* 全屏时悬浮的退出按钮：双击/按 f/Esc 依然可用，
+         这个按钮是给手机用户一个稳定可见的退出方式 */
+      .fs-exit-btn {
+        display: none;
+        position: fixed;
+        top: max(10px, env(safe-area-inset-top));
+        right: 10px;
+        z-index: 25;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: 1px solid var(--border);
+        background: rgba(10, 10, 12, 0.55);
+        color: var(--gold);
+        font-size: 14px;
+        cursor: pointer;
+      }
+      :fullscreen .fs-exit-btn,
+      :-webkit-full-screen .fs-exit-btn,
+      body.fullscreen-mode .fs-exit-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
       @media (min-width: 720px) {
         .shelf {
           align-items: center;
@@ -512,40 +448,21 @@
         📚 书架
       </button>
       <div class="title" id="doc-title"></div>
-      <button type="button" class="btn" id="btn-zoom-out" title="缩小">−</button>
-      <button type="button" class="btn" id="btn-zoom-in" title="放大">+</button>
       <button type="button" class="btn" id="btn-fs" title="全屏">⛶</button>
     </header>
 
     <main class="stage" id="stage">
       <div id="page-wrap">
         <canvas id="viewer" hidden></canvas>
-        <div id="text-layer" class="textLayer"></div>
       </div>
       <div class="hint" id="hint" hidden></div>
+      <button type="button" class="fs-exit-btn" id="btn-fs-exit" title="退出全屏">✕</button>
       <div class="loading" id="loading" aria-live="polite">
         <div class="loading-label" id="loading-label">正在加载…</div>
         <div class="progress-track">
           <div class="progress-bar" id="progress-bar"></div>
         </div>
         <div class="progress-pct" id="progress-pct">0%</div>
-      </div>
-
-      <!-- 选中文字后弹出的翻译/发音小卡片 -->
-      <div class="word-popup" id="word-popup" hidden>
-        <div class="word-popup-original" id="word-popup-original"></div>
-        <div class="word-popup-langs" id="word-popup-langs">
-          <button type="button" class="lang-btn" data-lang="zh-CN">中</button>
-          <button type="button" class="lang-btn" data-lang="en">EN</button>
-          <button type="button" class="lang-btn" data-lang="ja">日</button>
-          <button type="button" class="lang-btn" data-lang="fr">FR</button>
-        </div>
-        <div class="word-popup-translation" id="word-popup-translation"></div>
-        <div class="word-popup-actions">
-          <button type="button" class="btn-link" id="word-popup-speak-src">🔊 原文</button>
-          <button type="button" class="btn-link" id="word-popup-speak-tgt">🔊 译文</button>
-          <button type="button" class="btn-link" id="word-popup-close">✕</button>
-        </div>
       </div>
     </main>
 
@@ -573,9 +490,14 @@
       <div class="shelf-panel" role="dialog" aria-labelledby="shelf-title">
         <div class="shelf-head">
           <span id="shelf-title">📚 选择书籍</span>
-          <button type="button" class="btn" id="btn-shelf-close" aria-label="关闭">
-            ✕
-          </button>
+          <span style="display:flex;gap:6px">
+            <button type="button" class="btn" id="btn-shelf-refresh" title="重新扫描书目">
+              🔄
+            </button>
+            <button type="button" class="btn" id="btn-shelf-close" aria-label="关闭">
+              ✕
+            </button>
+          </span>
         </div>
         <ul class="book-list" id="book-list"></ul>
         <div class="empty" id="book-empty" hidden>暂无可用书籍（请把 PDF 放在同目录）</div>
@@ -598,20 +520,9 @@
        * 1. 书籍配置 & 本地存储（IndexedDB）
        *    v2 起改用 IndexedDB 保存阅读记录：
        *    - 容量比 localStorage 大得多，且是异步 API，不阻塞渲染
-       *    - 每本书除了页码，现在还会记住上次的缩放倍数（scale）
+       *    - 每本书会记住上次看到的页码
        *    首次运行会自动把旧版本存在 localStorage 里的记录搬过来一次。
        * ============================================================ */
-
-      // 书架列表：file 必须与 PDF 实际文件名一致（与本页面同目录）
-      const BOOKS = [
-        { file: "anne-of-green-gables.pdf", title: "Anne of Green Gables", sub: "绿山墙的安妮" },
-        { file: "outlaws_of_the_marsh.pdf", title: "Outlaws of the Marsh", sub: "水浒传" },
-        { file: "jourwest.pdf", title: "Journey to the West", sub: "西游记" },
-        { file: "4.pdf", title: "Book 4", sub: "4.pdf" },
-        { file: "5.pdf", title: "Book 5", sub: "5.pdf" },
-        { file: "6.pdf", title: "Book 6", sub: "6.pdf" },
-        { file: "7.pdf", title: "Book 7", sub: "7.pdf" },
-      ];
 
       /**
        * 由文件名解析出可访问的 PDF 完整 URL。
@@ -621,13 +532,42 @@
         return new URL(file, document.baseURI).href;
       }
 
+      /**
+       * 书架列表不再写死在代码里，而是从同目录的 books.json 清单文件读取。
+       * 格式：[{ "file": "xxx.pdf", "title": "显示名", "sub": "副标题（可选）" }, ...]
+       * 以后要加/删/改书，只需要编辑 books.json，不用碰这个 HTML 文件。
+       */
+      let BOOKS = [];
+      let booksManifestError = null;
+
+      async function loadBooksManifest() {
+        try {
+          const res = await fetch(new URL("books.json", document.baseURI).href, {
+            cache: "no-store",
+          });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          if (!Array.isArray(data)) throw new Error("books.json 顶层应该是一个数组");
+          BOOKS = data
+            .filter((b) => b && typeof b.file === "string" && b.file.trim())
+            .map((b) => ({
+              file: b.file.trim(),
+              title: (b.title && String(b.title).trim()) || b.file.replace(/\.pdf$/i, ""),
+              sub: (b.sub && String(b.sub).trim()) || "",
+            }));
+          booksManifestError = null;
+        } catch (e) {
+          BOOKS = [];
+          booksManifestError = e && e.message ? e.message : "未知错误";
+        }
+      }
+
       // ---- IndexedDB 封装：一个简单的 key-value 仓库 ----
       const DB_NAME = "tp_reader_db";
       const DB_VERSION = 1;
       const STORE_NAME = "kv";
       const KEY_LAST_BOOK = "last_book"; // 记录「最近一次」打开的是哪本书
-      const keyBookState = (file) => "book_state:" + file; // 每本书的 {page, scale}
-      const KEY_TARGET_LANG = "target_lang"; // 记录「上次选择的译文语言」
+      const keyBookState = (file) => "book_state:" + file; // 每本书的 {page}
 
       let dbPromise = null;
       function idbOpen() {
@@ -700,7 +640,7 @@
             if (k && k.indexOf(OLD_PAGE_PREFIX) === 0) {
               const file = k.slice(OLD_PAGE_PREFIX.length);
               const page = parseInt(localStorage.getItem(k) || "1", 10);
-              await idbSet(keyBookState(file), { page, scale: 1 });
+              await idbSet(keyBookState(file), { page });
             }
           }
           localStorage.setItem(MIGRATED_FLAG, "1");
@@ -715,7 +655,6 @@
         stage: document.getElementById("stage"),
         pageWrap: document.getElementById("page-wrap"),
         canvas: document.getElementById("viewer"),
-        textLayer: document.getElementById("text-layer"),
         hint: document.getElementById("hint"),
         loading: document.getElementById("loading"),
         loadingLabel: document.getElementById("loading-label"),
@@ -726,22 +665,15 @@
         pageTotal: document.getElementById("page-total"),
         btnPrev: document.getElementById("btn-prev"),
         btnNext: document.getElementById("btn-next"),
-        btnZoomIn: document.getElementById("btn-zoom-in"),
-        btnZoomOut: document.getElementById("btn-zoom-out"),
         btnFs: document.getElementById("btn-fs"),
+        btnFsExit: document.getElementById("btn-fs-exit"),
         btnShelf: document.getElementById("btn-shelf"),
         btnShelfClose: document.getElementById("btn-shelf-close"),
+        btnShelfRefresh: document.getElementById("btn-shelf-refresh"),
         btnClearHistory: document.getElementById("btn-clear-history"),
         shelf: document.getElementById("shelf"),
         bookList: document.getElementById("book-list"),
         bookEmpty: document.getElementById("book-empty"),
-        wordPopup: document.getElementById("word-popup"),
-        wordPopupOriginal: document.getElementById("word-popup-original"),
-        wordPopupLangs: document.getElementById("word-popup-langs"),
-        wordPopupTranslation: document.getElementById("word-popup-translation"),
-        wordPopupSpeakSrc: document.getElementById("word-popup-speak-src"),
-        wordPopupSpeakTgt: document.getElementById("word-popup-speak-tgt"),
-        wordPopupClose: document.getElementById("word-popup-close"),
       };
 
       /* ============================================================
@@ -751,7 +683,6 @@
       // —— PDF 文档 / 翻页状态 ——
       let pdfDoc = null;       // 当前 pdf.js 文档实例
       let pageNum = 1;         // 当前页码
-      let scale = 1;           // 手动缩放倍数（+ / − 按钮），叠加在自适应 fit 之上
       let rendering = false;   // 是否正在渲染中，防止并发渲染
       let pendingPage = null;  // 渲染中若又请求了新页码，先记下来，渲染完再补上
       let currentBook = null;  // 当前打开的书籍对象 { file, title, sub }
@@ -772,32 +703,12 @@
       let pinchStartScale = 1;       // 双指捏合起始时的 viewScale
       let pinchStartCenter = null;   // 双指捏合起始时的两指中心点
 
-      // —— 选词翻译 / 发音 ——
-      let textLayerTask = null;      // 当前文字层渲染任务（翻页时用来取消上一次未完成的渲染）
-      let selectionDebounce = null;  // 选区变化的防抖定时器
-
-      // 支持互译的四种语言：code 对应 MyMemory 的语言代码，speech 对应语音朗读的 BCP47 标签
-      const LANGS = [
-        { code: "zh-CN", label: "中", speech: "zh-CN" },
-        { code: "en", label: "EN", speech: "en-US" },
-        { code: "ja", label: "日", speech: "ja-JP" },
-        { code: "fr", label: "FR", speech: "fr-FR" },
-      ];
-      let targetLang = "zh-CN"; // 「译文」目标语言，默认中文，可在弹窗里切换，会记住上次选择
-      // 当前弹窗对应的选中内容：{ text, sourceLang, targetLang, translated }
-      let popupState = null;
-
       /* ============================================================
        * 4. 通用小工具函数
        * ============================================================ */
 
       function clamp(v, min, max) {
         return Math.max(min, Math.min(max, v));
-      }
-
-      // +/- 按钮使用的手动缩放范围（0.5x ~ 4x）
-      function clampScale(value) {
-        return clamp(value, 0.5, 4);
       }
 
       /* ============================================================
@@ -943,11 +854,13 @@
           const stageW = els.stage.clientWidth - 16;
           const stageH = els.stage.clientHeight - 16;
           const fit = Math.min(stageW / base.width, stageH / base.height);
-          const viewport = page.getViewport({ scale: fit * scale });
+          const viewport = page.getViewport({ scale: fit });
 
           const canvas = els.canvas;
           const ctx = canvas.getContext("2d", { alpha: false });
-          const outputScale = Math.min(window.devicePixelRatio || 1, 2);
+          // 顶部缩放按钮已去掉，只靠手势/滚轮缩放；这里把基础渲染分辨率上限
+          // 从 2x 提到 3x，让手势放大后文字依然清晰一些。
+          const outputScale = Math.min(window.devicePixelRatio || 1, 3);
           canvas.width = Math.floor(viewport.width * outputScale);
           canvas.height = Math.floor(viewport.height * outputScale);
           canvas.style.width = Math.floor(viewport.width) + "px";
@@ -976,14 +889,11 @@
             transform,
           }).promise;
 
-          // 文字层不影响首屏显示速度，不等待它完成
-          renderTextLayer(page, viewport);
-
           pageNum = num;
           updateNav();
-          // 记住当前书的页码 + 缩放倍数，下次打开同一本书直接恢复
+          // 记住当前书看到第几页，下次打开同一本书直接恢复
           if (currentBook && currentBook.file) {
-            idbSet(keyBookState(currentBook.file), { page: pageNum, scale });
+            idbSet(keyBookState(currentBook.file), { page: pageNum });
           }
         } catch (err) {
           console.error(err);
@@ -1046,17 +956,11 @@
           const loadingTask = pdfjsLib.getDocument({ data });
           pdfDoc = await loadingTask.promise;
 
-          // 恢复这本书上次的页码 + 缩放倍数（若有记录且未超出总页数）
+          // 恢复这本书上次看到的页码（若有记录且未超出总页数）
           let start = 1;
-          scale = 1;
           const savedState = await idbGet(keyBookState(book.file));
-          if (savedState) {
-            if (savedState.page >= 1 && savedState.page <= pdfDoc.numPages) {
-              start = savedState.page;
-            }
-            if (typeof savedState.scale === "number") {
-              scale = clampScale(savedState.scale);
-            }
+          if (savedState && savedState.page >= 1 && savedState.page <= pdfDoc.numPages) {
+            start = savedState.page;
           }
 
           hideLoading();
@@ -1154,6 +1058,15 @@
           '<li class="scanning">正在扫描可用书籍…</li>';
         els.bookEmpty.hidden = true;
 
+        if (booksManifestError) {
+          els.bookList.innerHTML = "";
+          els.bookEmpty.hidden = false;
+          els.bookEmpty.textContent =
+            "书目清单 books.json 加载失败：" + booksManifestError +
+            "（检查同目录下是否有 books.json，格式是否正确）";
+          return;
+        }
+
         if (!availableCache) {
           const results = await Promise.all(
             BOOKS.map(async (b) => ({ book: b, ok: await probe(b.file) }))
@@ -1215,6 +1128,14 @@
         if (e.target === els.shelf) closeShelf();
       });
 
+      // 重新扫描书目：重新拉取 books.json + 重新探测文件是否存在
+      // （改完 books.json 后不用刷新整个页面就能看到新书）
+      els.btnShelfRefresh.addEventListener("click", async () => {
+        availableCache = null;
+        await loadBooksManifest();
+        openShelf();
+      });
+
       // 清除阅读记录：清空 IndexedDB 里的「最近阅读书籍」和「各书页码/缩放」，
       // 然后刷新页面 —— 之后就会像第一次使用一样弹出书架。
       els.btnClearHistory.addEventListener("click", async () => {
@@ -1233,15 +1154,6 @@
         goTo(parseInt(els.pageInput.value, 10) || 1);
       });
 
-      els.btnZoomIn.addEventListener("click", () => {
-        scale = clampScale(Math.round((scale + 0.15) * 100) / 100);
-        renderPage(pageNum);
-      });
-      els.btnZoomOut.addEventListener("click", () => {
-        scale = clampScale(Math.round((scale - 0.15) * 100) / 100);
-        renderPage(pageNum);
-      });
-
       /* ============================================================
        * 11. 全屏模式
        *    优先使用浏览器原生全屏 API；不支持时（部分手机浏览器）
@@ -1250,6 +1162,11 @@
 
       els.btnFs.addEventListener("click", toggleFullscreen);
       els.stage.addEventListener("dblclick", toggleFullscreen);
+      // 全屏时悬浮的退出按钮：修复手机上「双击很难可靠退出全屏」的问题
+      els.btnFsExit.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleFullscreen();
+      });
 
       // 切换全屏相关的 UI 状态，并在需要时重新渲染当前页以铺满屏幕
       function setFullscreenUi(active) {
@@ -1313,6 +1230,10 @@
        *    Esc：关闭书架         f / F：切换全屏
        * ============================================================ */
       window.addEventListener("keydown", (e) => {
+        // 焦点在输入框（比如正在改页码）时，方向键/空格应该正常输入，不触发翻页快捷键
+        const activeTag = document.activeElement && document.activeElement.tagName;
+        if (activeTag === "INPUT" || activeTag === "TEXTAREA") return;
+
         if (e.key === "ArrowLeft" || e.key === "PageUp") {
           e.preventDefault();
           goTo(pageNum - 1);
@@ -1453,15 +1374,28 @@
       }, { passive: false });
 
       // 点击左/右半屏翻页
+      // 修复bug：click 和 dblclick 绑在同一个元素上时，浏览器对一次双击
+      // 会先后触发 click、click、dblclick —— 原来的写法会导致双击进全屏前
+      // 先被误判成连续翻了两页。这里把单击动作延迟一小段时间执行，如果
+      // 在这段时间内又来了第二次点击，就当作是双击的一部分，取消翻页，
+      // 交给 dblclick 处理全屏切换。
+      let stageClickTimer = null;
       els.stage.addEventListener("click", (e) => {
         if (!pdfDoc || e.target.closest(".loading") || viewScale > 1.01) return;
-        // 刚选中了文字（比如双击选词）时，单击不应该触发翻页
-        const sel = window.getSelection();
-        if (sel && sel.toString().trim()) return;
+
+        if (stageClickTimer) {
+          clearTimeout(stageClickTimer);
+          stageClickTimer = null;
+          return;
+        }
+
         const rect = els.stage.getBoundingClientRect();
         const x = e.clientX - rect.left;
-        if (x < rect.width * 0.28) goTo(pageNum - 1);
-        else if (x > rect.width * 0.72) goTo(pageNum + 1);
+        stageClickTimer = setTimeout(() => {
+          stageClickTimer = null;
+          if (x < rect.width * 0.28) goTo(pageNum - 1);
+          else if (x > rect.width * 0.72) goTo(pageNum + 1);
+        }, 260);
       });
 
       window.addEventListener("resize", () => {
@@ -1469,232 +1403,16 @@
       });
 
       /* ============================================================
-       * 14. 选词翻译与发音（中 / 英 / 日 / 法 四语言互译）
-       *    依赖 PDF.js 的文字层（TextLayer）：把每页的文字以透明 <span>
-       *    叠在 canvas 上方，这样文字才能像普通网页一样被选中。
-       *    选中一个词/短语/句子后：
-       *    - 按字符特征自动判断原文是中/英/日/法中的哪一种
-       *    - 调用免费翻译接口（MyMemory）译成当前选定的目标语言（可在卡片上切换）
-       *    - 「🔊 原文」「🔊 译文」分别用对应语言的语音朗读
-       * ============================================================ */
-
-      // 渲染当前页的文字层（异步、不阻塞页面显示；翻页很快时会自动取消上一次未完成的渲染）
-      async function renderTextLayer(page, viewport) {
-        if (typeof pdfjsLib.TextLayer !== "function") return; // 极少数环境没有该 API，静默跳过
-
-        if (textLayerTask) {
-          try { textLayerTask.cancel(); } catch (e) {}
-          textLayerTask = null;
-        }
-        els.textLayer.innerHTML = "";
-        els.textLayer.style.setProperty("--scale-factor", viewport.scale.toString());
-
-        try {
-          const textContent = await page.getTextContent();
-          const task = new pdfjsLib.TextLayer({
-            container: els.textLayer,
-            textContentSource: textContent,
-            viewport,
-          });
-          textLayerTask = task;
-          await task.render();
-        } catch (e) {
-          // 渲染被取消（快速翻页）是正常情况，其它错误静默忽略即可，不影响阅读
-        }
-      }
-
-      // 用浏览器内置的语音合成朗读一段文字（lang 为 BCP47 标签，如 "ja-JP"）
-      function speak(text, lang) {
-        if (!("speechSynthesis" in window) || !text) return;
-        speechSynthesis.cancel(); // 打断上一次朗读
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = lang || "en-US";
-        speechSynthesis.speak(utter);
-      }
-
-      /**
-       * 根据字符特征粗略判断文本属于中/英/日/法四种语言中的哪一种：
-       * - 含平假名/片假名 → 日语（即便里面混了汉字）
-       * - 含 CJK 汉字但没有假名 → 中文
-       * - 含法语常见重音字符 → 法语
-       * - 其余（普通拉丁字母）→ 默认英语
-       * 这不是严谨的语言检测，但对「选中一段书里的文字」这个场景已经够用。
-       */
-      function detectLang(text) {
-        if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) return "ja";
-        if (/[\u4E00-\u9FFF]/.test(text)) return "zh-CN";
-        if (/[àâäæçéèêëîïôœùûüÿ]/i.test(text)) return "fr";
-        return "en";
-      }
-
-      // 目标语言若和原文语言相同（比如选中中文，但当前目标也是中文），
-      // 自动换成下一个不同的语言，避免出现「翻译成自己」的无意义结果。
-      function pickTargetLang(sourceLang, preferred) {
-        if (preferred !== sourceLang) return preferred;
-        const fallback = LANGS.find((l) => l.code !== sourceLang);
-        return fallback ? fallback.code : preferred;
-      }
-
-      // 调用免费翻译接口（MyMemory，无需 key），sl/tl 为 LANGS 里的 code
-      async function translateText(text, sl, tl) {
-        const url =
-          "https://api.mymemory.translated.net/get?q=" +
-          encodeURIComponent(text) +
-          "&langpair=" + sl + "|" + tl;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const data = await res.json();
-        const translated = data && data.responseData && data.responseData.translatedText;
-        if (!translated) throw new Error("无翻译结果");
-        return translated;
-      }
-
-      // 更新语言按钮组的高亮状态（哪个是当前目标语言）
-      function updateLangButtons() {
-        els.wordPopupLangs.querySelectorAll(".lang-btn").forEach((btn) => {
-          btn.classList.toggle("active", btn.dataset.lang === popupState.targetLang);
-        });
-      }
-
-      // 发起翻译请求并更新卡片上的译文区域
-      function runTranslate() {
-        const { text, sourceLang, targetLang: tl } = popupState;
-        els.wordPopupTranslation.textContent = "翻译中…";
-        els.wordPopupTranslation.classList.remove("error");
-
-        translateText(text, sourceLang, tl)
-          .then((translated) => {
-            if (!popupState || popupState.text !== text || popupState.targetLang !== tl) return; // 已切换到别的选区/语言，丢弃过期结果
-            popupState.translated = translated;
-            els.wordPopupTranslation.textContent = translated;
-          })
-          .catch(() => {
-            if (!popupState || popupState.text !== text || popupState.targetLang !== tl) return;
-            els.wordPopupTranslation.textContent = "翻译失败，请检查网络";
-            els.wordPopupTranslation.classList.add("error");
-          });
-      }
-
-      // 把选词弹窗定位到选区附近，识别原文语言并展示，同时发起翻译
-      function showWordPopup(rect, text) {
-        const sourceLang = detectLang(text);
-        popupState = {
-          text,
-          sourceLang,
-          targetLang: pickTargetLang(sourceLang, targetLang),
-          translated: "",
-        };
-
-        els.wordPopupOriginal.textContent = text;
-        updateLangButtons();
-        els.wordPopup.hidden = false;
-
-        // 优先显示在选区下方；放不下就挪到上方；水平方向做边界收敛，避免弹出屏幕外
-        const margin = 8;
-        const popupW = els.wordPopup.offsetWidth || 260;
-        const popupH = els.wordPopup.offsetHeight || 140;
-        let left = rect.left + rect.width / 2 - popupW / 2;
-        left = clamp(left, margin, window.innerWidth - popupW - margin);
-        let top = rect.bottom + 10;
-        if (top + popupH > window.innerHeight - margin) {
-          top = rect.top - popupH - 10;
-        }
-        els.wordPopup.style.left = left + "px";
-        els.wordPopup.style.top = Math.max(margin, top) + "px";
-
-        runTranslate();
-      }
-
-      function hideWordPopup() {
-        els.wordPopup.hidden = true;
-        popupState = null;
-      }
-
-      // 监听选区变化（防抖 200ms）：选中文字层里的内容就弹出翻译卡片，
-      // 选区清空、或选到的是界面其它文字（比如书架列表）则收起弹窗
-      document.addEventListener("selectionchange", () => {
-        clearTimeout(selectionDebounce);
-        selectionDebounce = setTimeout(() => {
-          const sel = window.getSelection();
-          const text = sel && sel.rangeCount > 0 ? sel.toString().trim() : "";
-          if (!text) {
-            hideWordPopup();
-            return;
-          }
-
-          const anchorEl =
-            sel.anchorNode && sel.anchorNode.nodeType === 1
-              ? sel.anchorNode
-              : sel.anchorNode && sel.anchorNode.parentElement;
-          if (!anchorEl || !els.textLayer.contains(anchorEl)) {
-            hideWordPopup();
-            return;
-          }
-
-          const rect = sel.getRangeAt(0).getBoundingClientRect();
-          if (!rect || (rect.width === 0 && rect.height === 0)) {
-            hideWordPopup();
-            return;
-          }
-          // 选区没变（比如只是又触发了一次 selectionchange）就不用重新弹一次
-          if (popupState && popupState.text === text && !els.wordPopup.hidden) return;
-          showWordPopup(rect, text);
-        }, 200);
-      });
-
-      // 点击语言按钮：切换目标语言、记住选择、重新翻译
-      els.wordPopupLangs.addEventListener("click", (e) => {
-        const btn = e.target.closest(".lang-btn");
-        if (!btn || !popupState) return;
-        const lang = btn.dataset.lang;
-        if (lang === popupState.targetLang) return;
-
-        popupState.targetLang = lang;
-        targetLang = lang;
-        idbSet(KEY_TARGET_LANG, lang);
-        updateLangButtons();
-        runTranslate();
-      });
-
-      els.wordPopupSpeakSrc.addEventListener("click", () => {
-        if (!popupState) return;
-        const lang = LANGS.find((l) => l.code === popupState.sourceLang);
-        speak(popupState.text, lang ? lang.speech : "en-US");
-      });
-      els.wordPopupSpeakTgt.addEventListener("click", () => {
-        if (!popupState || !popupState.translated) return;
-        const lang = LANGS.find((l) => l.code === popupState.targetLang);
-        speak(popupState.translated, lang ? lang.speech : "en-US");
-      });
-      els.wordPopupClose.addEventListener("click", () => {
-        window.getSelection().removeAllRanges();
-        hideWordPopup();
-      });
-
-      // 点击弹窗和文字层以外的地方时收起弹窗
-      document.addEventListener("pointerdown", (e) => {
-        if (els.wordPopup.hidden) return;
-        if (els.wordPopup.contains(e.target)) return;
-        if (els.textLayer.contains(e.target)) return;
-        hideWordPopup();
-      });
-
-      /* ============================================================
-       * 15. 启动逻辑
+       * 14. 启动逻辑
        *    三种优先级（从高到低）：
        *    ① URL 带 ?file=xxx.pdf → 直接打开指定书籍
-       *    ② 有「最近阅读」记录     → 自动恢复上次的书、页码、缩放，不弹书架
+       *    ② 有「最近阅读」记录     → 自动恢复上次的书、页码，不弹书架
        *    ③ 都没有（首次使用）     → 弹出书架，让用户手动选书
        *    IndexedDB 是异步 API，所以整个启动流程包在一个 async 函数里。
        * ============================================================ */
       (async function boot() {
         await migrateFromLocalStorage(); // 把旧版本 localStorage 里的记录搬过来（只执行一次）
-
-        // 恢复「上次选择的译文语言」（选词翻译功能用，与打开哪本书无关）
-        const savedTargetLang = await idbGet(KEY_TARGET_LANG);
-        if (savedTargetLang && LANGS.some((l) => l.code === savedTargetLang)) {
-          targetLang = savedTargetLang;
-        }
+        await loadBooksManifest(); // 读取 books.json 书目清单
 
         const params = new URLSearchParams(location.search);
         const fileParam = params.get("file");
