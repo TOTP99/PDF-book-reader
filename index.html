@@ -57,14 +57,6 @@
         z-index: 20;
       }
 
-      .topbar .brand {
-        font-size: 13px;
-        font-weight: 700;
-        color: var(--gold);
-        letter-spacing: 0.5px;
-        white-space: nowrap;
-      }
-
       .topbar .title {
         flex: 1;
         min-width: 0;
@@ -122,13 +114,11 @@
         overflow: hidden;
         touch-action: none;
       }
-
       .stage.grabbing {
         cursor: grabbing;
       }
 
-      /* #page-wrap 承载缩放/平移的 CSS transform（原来直接加在 canvas 上）；
-         canvas 和文字层都是它的子元素，两者始终保持像素级对齐 */
+      /* page-wrap 承载缩放/平移；canvas 为其子元素，始终对齐 */
       #page-wrap {
         position: relative;
         transform-origin: 0 0;
@@ -285,6 +275,92 @@
         font-size: 15px;
         letter-spacing: 0.5px;
       }
+
+      /* 书架 / 禁书架 切换 */
+      .shelf-tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+      .shelf-tab {
+        flex: 1;
+        appearance: none;
+        border: 1px solid rgba(255, 215, 0, 0.22);
+        background: rgba(255, 215, 0, 0.04);
+        color: var(--muted);
+        border-radius: 10px;
+        height: 34px;
+        font-size: 13px;
+        font-family: inherit;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+      }
+      .shelf-tab.active {
+        background: rgba(255, 215, 0, 0.12);
+        border-color: var(--gold-dim);
+        color: var(--gold);
+        font-weight: 700;
+      }
+      .shelf-tab:active {
+        transform: scale(0.97);
+      }
+
+      /* 禁书架密码门 */
+      .lock-gate {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 28px 12px 16px;
+        text-align: center;
+      }
+      .lock-gate.show {
+        display: flex;
+      }
+      .lock-gate .lock-ico {
+        font-size: 36px;
+        line-height: 1;
+      }
+      .lock-gate .lock-title {
+        color: var(--gold);
+        font-weight: 700;
+        font-size: 15px;
+      }
+      .lock-gate .lock-hint {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .lock-gate .lock-row {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+        max-width: 260px;
+        margin-top: 4px;
+      }
+      .lock-gate input {
+        flex: 1;
+        min-width: 0;
+        height: 36px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: #0c0c10;
+        color: var(--gold);
+        text-align: center;
+        font-size: 16px;
+        letter-spacing: 4px;
+        font-family: inherit;
+      }
+      .lock-gate input:focus {
+        outline: none;
+        border-color: var(--gold-dim);
+      }
+      .lock-gate .lock-err {
+        color: var(--danger);
+        font-size: 12px;
+        min-height: 18px;
+      }
+
       .book-list {
         list-style: none;
         margin: 0;
@@ -361,31 +437,25 @@
         color: var(--danger);
       }
 
-      /* ===== 全屏阅读 ===== */
+      /* ===== 全屏 ===== */
       :fullscreen,
       :-webkit-full-screen {
         width: 100%;
         height: 100%;
       }
-
       :fullscreen body,
       :-webkit-full-screen body {
         width: 100%;
         height: 100%;
       }
-
       :fullscreen .topbar,
       :-webkit-full-screen .topbar,
-      body.fullscreen-mode .topbar {
-        display: none;
-      }
-
+      body.fullscreen-mode .topbar,
       :fullscreen .bottombar,
       :-webkit-full-screen .bottombar,
       body.fullscreen-mode .bottombar {
         display: none;
       }
-
       :fullscreen .stage,
       :-webkit-full-screen .stage,
       body.fullscreen-mode .stage {
@@ -395,7 +465,6 @@
         flex: 1 1 auto;
         touch-action: none;
       }
-
       :fullscreen #viewer,
       :-webkit-full-screen #viewer,
       body.fullscreen-mode #viewer {
@@ -403,8 +472,6 @@
         max-height: none;
       }
 
-      /* 全屏时悬浮的退出按钮：双击/按 f/Esc 依然可用，
-         这个按钮是给手机用户一个稳定可见的退出方式 */
       .fs-exit-btn {
         display: none;
         position: fixed;
@@ -490,7 +557,7 @@
       <div class="shelf-panel" role="dialog" aria-labelledby="shelf-title">
         <div class="shelf-head">
           <span id="shelf-title">📚 选择书籍</span>
-          <span style="display:flex;gap:6px">
+          <span style="display: flex; gap: 6px">
             <button type="button" class="btn" id="btn-shelf-refresh" title="重新扫描书目">
               🔄
             </button>
@@ -499,8 +566,50 @@
             </button>
           </span>
         </div>
+
+        <div class="shelf-tabs" role="tablist">
+          <button
+            type="button"
+            class="shelf-tab active"
+            id="tab-normal"
+            role="tab"
+            aria-selected="true"
+          >
+            📚 书架
+          </button>
+          <button
+            type="button"
+            class="shelf-tab"
+            id="tab-restricted"
+            role="tab"
+            aria-selected="false"
+          >
+            🔒 禁书架
+          </button>
+        </div>
+
+        <div class="lock-gate" id="lock-gate">
+          <div class="lock-ico">🔒</div>
+          <div class="lock-title">禁书架已上锁</div>
+          <div class="lock-hint">请输入密码后查看（关闭标签页后需重新验证）</div>
+          <div class="lock-row">
+            <input
+              type="password"
+              id="lock-input"
+              inputmode="numeric"
+              maxlength="16"
+              autocomplete="off"
+              placeholder="••••"
+              aria-label="禁书架密码"
+            />
+            <button type="button" class="btn primary" id="btn-lock-unlock">解锁</button>
+          </div>
+          <div class="lock-err" id="lock-err"></div>
+        </div>
+
         <ul class="book-list" id="book-list"></ul>
-        <div class="empty" id="book-empty" hidden>暂无可用书籍（请把 PDF 放在同目录）</div>
+        <div class="empty" id="book-empty" hidden>暂无可用书籍</div>
+
         <div class="shelf-foot">
           <button type="button" class="btn-link" id="btn-clear-history">
             🗑 清除阅读记录
@@ -509,7 +618,6 @@
       </div>
     </div>
 
-    <!-- PDF.js -->
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs" type="module"></script>
     <script type="module">
       import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs";
@@ -517,26 +625,34 @@
         "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs";
 
       /* ============================================================
-       * 1. 书籍配置 & 本地存储（IndexedDB）
-       *    v2 起改用 IndexedDB 保存阅读记录：
-       *    - 容量比 localStorage 大得多，且是异步 API，不阻塞渲染
-       *    - 每本书会记住上次看到的页码
-       *    首次运行会自动把旧版本存在 localStorage 里的记录搬过来一次。
+       * 配置
+       * - PDF 文件统一从 BOOKS_BASE 拉取
+       * - 书目清单 books.json 与本页面同目录（仅元数据，体积小）
+       * - books.json 条目可加 "restricted": true 放入禁书架
        * ============================================================ */
+      const BOOKS_BASE = "https://totp99.github.io/source/books/";
+      const RESTRICTED_PASSWORD = "1216";
+      const SS_RESTRICTED_UNLOCK = "tp_restricted_unlocked";
 
-      /**
-       * 由文件名解析出可访问的 PDF 完整 URL。
-       * PDF 默认与阅读器 index.html 同目录；若部署在子路径下也能正确解析。
-       */
+      const DB_NAME = "tp_reader_db";
+      const DB_VERSION = 1;
+      const STORE_NAME = "kv";
+      const KEY_LAST_BOOK = "last_book";
+      const keyBookState = (file) => "book_state:" + file;
+
+      /** 根据文件名拼出远程 PDF 完整 URL（正确处理空格等特殊字符） */
       function bookUrl(file) {
-        return new URL(file, document.baseURI).href;
+        // 逐段 encode，保留已有路径结构
+        const encoded = String(file)
+          .split("/")
+          .map((seg) => encodeURIComponent(seg))
+          .join("/");
+        return new URL(encoded, BOOKS_BASE).href;
       }
 
-      /**
-       * 书架列表不再写死在代码里，而是从同目录的 books.json 清单文件读取。
-       * 格式：[{ "file": "xxx.pdf", "title": "显示名", "sub": "副标题（可选）" }, ...]
-       * 以后要加/删/改书，只需要编辑 books.json，不用碰这个 HTML 文件。
-       */
+      /* ============================================================
+       * 书目清单
+       * ============================================================ */
       let BOOKS = [];
       let booksManifestError = null;
 
@@ -552,8 +668,11 @@
             .filter((b) => b && typeof b.file === "string" && b.file.trim())
             .map((b) => ({
               file: b.file.trim(),
-              title: (b.title && String(b.title).trim()) || b.file.replace(/\.pdf$/i, ""),
+              title:
+                (b.title && String(b.title).trim()) ||
+                b.file.replace(/\.pdf$/i, ""),
               sub: (b.sub && String(b.sub).trim()) || "",
+              restricted: !!b.restricted,
             }));
           booksManifestError = null;
         } catch (e) {
@@ -562,18 +681,18 @@
         }
       }
 
-      // ---- IndexedDB 封装：一个简单的 key-value 仓库 ----
-      const DB_NAME = "tp_reader_db";
-      const DB_VERSION = 1;
-      const STORE_NAME = "kv";
-      const KEY_LAST_BOOK = "last_book"; // 记录「最近一次」打开的是哪本书
-      const keyBookState = (file) => "book_state:" + file; // 每本书的 {page}
-
+      /* ============================================================
+       * IndexedDB（阅读进度 / 最近书籍）
+       * ============================================================ */
       let dbPromise = null;
+
       function idbOpen() {
         if (dbPromise) return dbPromise;
         dbPromise = new Promise((resolve, reject) => {
-          if (!window.indexedDB) { reject(new Error("IndexedDB 不可用")); return; }
+          if (!window.indexedDB) {
+            reject(new Error("IndexedDB 不可用"));
+            return;
+          }
           const req = indexedDB.open(DB_NAME, DB_VERSION);
           req.onupgradeneeded = () => req.result.createObjectStore(STORE_NAME);
           req.onsuccess = () => resolve(req.result);
@@ -581,11 +700,15 @@
         });
         return dbPromise;
       }
+
       async function idbGet(key) {
         try {
           const db = await idbOpen();
           return await new Promise((resolve, reject) => {
-            const req = db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(key);
+            const req = db
+              .transaction(STORE_NAME, "readonly")
+              .objectStore(STORE_NAME)
+              .get(key);
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => reject(req.error);
           });
@@ -593,6 +716,7 @@
           return undefined;
         }
       }
+
       async function idbSet(key, value) {
         try {
           const db = await idbOpen();
@@ -607,6 +731,7 @@
           return false;
         }
       }
+
       async function idbClearAll() {
         try {
           const db = await idbOpen();
@@ -622,18 +747,17 @@
         }
       }
 
-      // 一次性迁移：把旧版本存在 localStorage 里的「最近阅读书籍 / 各书页码」
-      // 搬进 IndexedDB，搬完打个标记，以后不再重复执行。
+      /** 一次性把旧版 localStorage 记录迁到 IndexedDB */
       async function migrateFromLocalStorage() {
         const MIGRATED_FLAG = "tp_migrated_v2";
         try {
           if (localStorage.getItem(MIGRATED_FLAG)) return;
-
           const lastRaw = localStorage.getItem("tp_last_book");
           if (lastRaw) {
-            try { await idbSet(KEY_LAST_BOOK, JSON.parse(lastRaw)); } catch (e) {}
+            try {
+              await idbSet(KEY_LAST_BOOK, JSON.parse(lastRaw));
+            } catch (e) {}
           }
-
           const OLD_PAGE_PREFIX = "tp_pdf_pos_";
           for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
@@ -648,9 +772,8 @@
       }
 
       /* ============================================================
-       * 2. DOM 元素缓存
+       * DOM
        * ============================================================ */
-
       const els = {
         stage: document.getElementById("stage"),
         pageWrap: document.getElementById("page-wrap"),
@@ -674,64 +797,79 @@
         shelf: document.getElementById("shelf"),
         bookList: document.getElementById("book-list"),
         bookEmpty: document.getElementById("book-empty"),
+        tabNormal: document.getElementById("tab-normal"),
+        tabRestricted: document.getElementById("tab-restricted"),
+        lockGate: document.getElementById("lock-gate"),
+        lockInput: document.getElementById("lock-input"),
+        lockErr: document.getElementById("lock-err"),
+        btnLockUnlock: document.getElementById("btn-lock-unlock"),
+        shelfTitle: document.getElementById("shelf-title"),
       };
 
       /* ============================================================
-       * 3. 全局状态
+       * 状态
        * ============================================================ */
+      let pdfDoc = null;
+      let pageNum = 1;
+      let rendering = false;
+      let pendingPage = null;
+      let currentBook = null;
+      let availableCache = null;
 
-      // —— PDF 文档 / 翻页状态 ——
-      let pdfDoc = null;       // 当前 pdf.js 文档实例
-      let pageNum = 1;         // 当前页码
-      let rendering = false;   // 是否正在渲染中，防止并发渲染
-      let pendingPage = null;  // 渲染中若又请求了新页码，先记下来，渲染完再补上
-      let currentBook = null;  // 当前打开的书籍对象 { file, title, sub }
-      let availableCache = null; // 书架扫描结果缓存，避免每次打开都重新探测
+      // 视图缩放 / 平移
+      let viewScale = 1;
+      let viewX = 0;
+      let viewY = 0;
+      let baseCanvasW = 0;
+      let baseCanvasH = 0;
+      let panX = 0;
+      let panY = 0;
+      let panClientX = 0;
+      let panClientY = 0;
+      let lastPanX = 0;
+      let lastPanY = 0;
+      let isPanning = false;
+      let pinchStartDistance = 0;
+      let pinchStartScale = 1;
+      let pinchStartCenter = null;
 
-      // —— 阅读视图缩放 / 拖动状态（双指捏合 & 拖拽平移）——
-      let viewScale = 1;    // 当前视图缩放（1 = 未放大）
-      let viewX = 0;        // 视图在 stage 内的水平偏移
-      let viewY = 0;        // 视图在 stage 内的垂直偏移
-      let baseCanvasW = 0;  // 当前页 canvas 未缩放时的宽度（渲染后写入）
-      let baseCanvasH = 0;  // 当前页 canvas 未缩放时的高度（渲染后写入）
-      let panX = 0;         // 拖动/触摸起始点 X（stage 坐标系）
-      let panY = 0;         // 拖动/触摸起始点 Y（stage 坐标系）
-      let lastPanX = 0;     // 拖动开始时的 viewX，用于计算增量
-      let lastPanY = 0;     // 拖动开始时的 viewY，用于计算增量
-      let isPanning = false;         // 是否正在拖动画面
-      let pinchStartDistance = 0;    // 双指捏合起始时两指间距
-      let pinchStartScale = 1;       // 双指捏合起始时的 viewScale
-      let pinchStartCenter = null;   // 双指捏合起始时的两指中心点
+      // 书架分区
+      let shelfMode = "normal"; // "normal" | "restricted"
 
-      /* ============================================================
-       * 4. 通用小工具函数
-       * ============================================================ */
+      function isRestrictedUnlocked() {
+        try {
+          return sessionStorage.getItem(SS_RESTRICTED_UNLOCK) === "1";
+        } catch (e) {
+          return false;
+        }
+      }
+      function setRestrictedUnlocked(ok) {
+        try {
+          if (ok) sessionStorage.setItem(SS_RESTRICTED_UNLOCK, "1");
+          else sessionStorage.removeItem(SS_RESTRICTED_UNLOCK);
+        } catch (e) {}
+      }
 
       function clamp(v, min, max) {
         return Math.max(min, Math.min(max, v));
       }
 
       /* ============================================================
-       * 5. 加载进度 / 遮罩 UI
+       * 加载 UI
        * ============================================================ */
-
       function setProgress(p) {
         p = clamp(p | 0, 0, 100);
         els.progressBar.style.width = p + "%";
         els.progressPct.textContent = p + "%";
       }
-
       function showLoading(label) {
         els.loading.classList.add("show");
         els.loadingLabel.textContent = label || "正在加载…";
         setProgress(0);
       }
-
       function hideLoading() {
         els.loading.classList.remove("show");
       }
-
-      // 同步底部导航栏（页码输入框 / 上一页 / 下一页按钮）的状态
       function updateNav() {
         const n = pdfDoc ? pdfDoc.numPages : 0;
         els.pageTotal.textContent = n ? "/ " + n : "/ —";
@@ -743,23 +881,14 @@
       }
 
       /* ============================================================
-       * 6. 阅读视图变换（双指缩放 / 拖动平移）
-       *    与「渲染 PDF 页面」相互独立：渲染只负责把页面画到 canvas 上，
-       *    这里只是用 CSS transform 对已渲染好的 canvas 做缩放/平移。
+       * 视图变换（捏合缩放 / 拖动）
        * ============================================================ */
-
-      // 把当前 viewScale / viewX / viewY 应用到 #page-wrap 的 CSS transform
-      // （page-wrap 同时包含 canvas 和文字层，两者会一起缩放/平移，保持对齐）
       function applyViewTransform() {
         if (els.canvas.hidden) return;
-
         els.pageWrap.style.transform =
           `translate3d(${viewX}px, ${viewY}px, 0) scale(${viewScale})`;
-
-        els.stage.classList.toggle("reading-zoomed", viewScale > 1.01);
       }
 
-      // 重置视图缩放/位移到初始状态（每次切页/换书后调用）
       function resetView() {
         viewScale = 1;
         viewX = 0;
@@ -767,37 +896,19 @@
         applyViewTransform();
       }
 
-      // 渲染完新页面后重置阅读视口（对 resetView 的语义化包装）
-      function resetReadingViewport() {
-        resetView();
-      }
-
-      // 限制拖动范围：内容小于舞台时居中，大于舞台时不能拖出可视区域
       function fitPanBounds() {
         const stageW = els.stage.clientWidth;
         const stageH = els.stage.clientHeight;
         const w = baseCanvasW * viewScale;
         const h = baseCanvasH * viewScale;
 
-        if (w <= stageW) {
-          viewX = (stageW - w) / 2;
-        } else {
-          const minX = stageW - w;
-          viewX = clamp(viewX, minX, 0);
-        }
+        if (w <= stageW) viewX = (stageW - w) / 2;
+        else viewX = clamp(viewX, stageW - w, 0);
 
-        if (h <= stageH) {
-          viewY = (stageH - h) / 2;
-        } else {
-          const minY = stageH - h;
-          viewY = clamp(viewY, minY, 0);
-        }
+        if (h <= stageH) viewY = (stageH - h) / 2;
+        else viewY = clamp(viewY, stageH - h, 0);
       }
 
-      /**
-       * 以 (anchorX, anchorY) 为锚点设置新的视图缩放。
-       * 锚点通常是双指中心或鼠标位置，效果是缩放时锚点下的内容保持不动。
-       */
       function setViewScale(nextScale, anchorX, anchorY) {
         const oldScale = viewScale;
         const newScale = clamp(nextScale, 1, 4);
@@ -808,39 +919,28 @@
         viewScale = newScale;
         viewX = anchorX - localX * newScale;
         viewY = anchorY - localY * newScale;
-
         fitPanBounds();
         applyViewTransform();
       }
 
-      // 将鼠标/触摸的页面坐标转换为相对 stage 容器左上角的坐标
       function stagePoint(clientX, clientY) {
         const r = els.stage.getBoundingClientRect();
         return { x: clientX - r.left, y: clientY - r.top };
       }
-
-      // 两个触点之间的距离（用于双指捏合缩放）
       function touchDistance(a, b) {
         return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
       }
-
-      // 两个触点的中心坐标（相对 stage），作为捏合缩放的锚点
       function touchCenter(a, b) {
         const r = els.stage.getBoundingClientRect();
         return {
           x: (a.clientX + b.clientX) / 2 - r.left,
-          y: (a.clientY + b.clientY) / 2 - r.top
+          y: (a.clientY + b.clientY) / 2 - r.top,
         };
       }
 
       /* ============================================================
-       * 7. PDF 页面渲染 / 翻页
+       * 渲染 / 翻页
        * ============================================================ */
-
-      /**
-       * 渲染指定页码：计算自适应缩放 → 画到 canvas → 更新导航栏 → 记住阅读进度。
-       * 渲染期间若又收到新的页码请求，会在当前渲染完成后自动补渲染最新那一页。
-       */
       async function renderPage(num) {
         if (!pdfDoc) return;
         if (rendering) {
@@ -858,8 +958,6 @@
 
           const canvas = els.canvas;
           const ctx = canvas.getContext("2d", { alpha: false });
-          // 顶部缩放按钮已去掉，只靠手势/滚轮缩放；这里把基础渲染分辨率上限
-          // 从 2x 提到 3x，让手势放大后文字依然清晰一些。
           const outputScale = Math.min(window.devicePixelRatio || 1, 3);
           canvas.width = Math.floor(viewport.width * outputScale);
           canvas.height = Math.floor(viewport.height * outputScale);
@@ -867,31 +965,24 @@
           canvas.style.height = Math.floor(viewport.height) + "px";
           canvas.hidden = false;
 
-          // page-wrap 的尺寸要和 canvas 一致，文字层（inset:0）才能严丝合缝地叠上去
           els.pageWrap.style.width = Math.floor(viewport.width) + "px";
           els.pageWrap.style.height = Math.floor(viewport.height) + "px";
 
           baseCanvasW = Math.floor(viewport.width);
           baseCanvasH = Math.floor(viewport.height);
-          resetReadingViewport();
+          resetView();
           els.hint.hidden = true;
 
           const transform =
             outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
 
-          // 暗色：先铺底，再渲染页面
           ctx.fillStyle = "#111111";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-          await page.render({
-            canvasContext: ctx,
-            viewport,
-            transform,
-          }).promise;
+          await page.render({ canvasContext: ctx, viewport, transform }).promise;
 
           pageNum = num;
           updateNav();
-          // 记住当前书看到第几页，下次打开同一本书直接恢复
           if (currentBook && currentBook.file) {
             idbSet(keyBookState(currentBook.file), { page: pageNum });
           }
@@ -900,7 +991,6 @@
           els.loadingLabel.textContent = "渲染失败";
         } finally {
           rendering = false;
-          // 渲染过程中又有新的翻页请求进来，渲染完成后补渲染最新那一页
           if (pendingPage !== null && pendingPage !== pageNum) {
             const p = pendingPage;
             pendingPage = null;
@@ -911,33 +1001,30 @@
         }
       }
 
-      // 跳转到指定页码（自动夹在 1 ~ 总页数之间）
       function goTo(num) {
         if (!pdfDoc) return;
         num = Math.max(1, Math.min(pdfDoc.numPages, num | 0));
-        if (num === pageNum && !rendering) {
-          renderPage(num);
-          return;
-        }
         renderPage(num);
       }
 
       /* ============================================================
-       * 8. 书籍加载
+       * 加载书籍
        * ============================================================ */
-
-      /**
-       * 加载并展示一本书：
-       * 下载 PDF（带进度条）→ 用 pdf.js 解析 → 跳到上次阅读的页码 → 记为「最近阅读」。
-       * 若下载或解析失败，展示错误提示并自动弹出书架，方便用户换一本书。
-       */
       async function loadBook(book) {
+        // 禁书必须先解锁，防止 URL / 最近阅读绕过
+        if (book && book.restricted && !isRestrictedUnlocked()) {
+          setTimeout(() => {
+            setShelfMode("restricted");
+            openShelf();
+          }, 50);
+          return;
+        }
+
         currentBook = book;
         els.docTitle.textContent = book.title;
         showLoading("正在加载「" + book.title + "」…");
         closeShelf();
 
-        // 销毁旧文档
         if (pdfDoc) {
           try {
             await pdfDoc.destroy();
@@ -948,7 +1035,6 @@
         const url = bookUrl(book.file);
 
         try {
-          // 带进度的下载
           const data = await fetchWithProgress(url, (p) => setProgress(p));
           setProgress(100);
           els.loadingLabel.textContent = "解析中…";
@@ -956,18 +1042,25 @@
           const loadingTask = pdfjsLib.getDocument({ data });
           pdfDoc = await loadingTask.promise;
 
-          // 恢复这本书上次看到的页码（若有记录且未超出总页数）
           let start = 1;
           const savedState = await idbGet(keyBookState(book.file));
-          if (savedState && savedState.page >= 1 && savedState.page <= pdfDoc.numPages) {
+          if (
+            savedState &&
+            savedState.page >= 1 &&
+            savedState.page <= pdfDoc.numPages
+          ) {
             start = savedState.page;
           }
 
           hideLoading();
           await renderPage(start);
 
-          // 记住「最近阅读」的书籍，下次打开页面时自动恢复（不弹书架）
-          idbSet(KEY_LAST_BOOK, { file: book.file, title: book.title, sub: book.sub });
+          idbSet(KEY_LAST_BOOK, {
+            file: book.file,
+            title: book.title,
+            sub: book.sub,
+            restricted: !!book.restricted,
+          });
         } catch (err) {
           console.error(err);
           els.loadingLabel.textContent =
@@ -979,12 +1072,10 @@
           els.docTitle.textContent = "";
           pdfDoc = null;
           updateNav();
-          // 加载失败（如文件缺失/网络问题）时自动弹出书架，方便重新选书
           setTimeout(openShelf, 300);
         }
       }
 
-      // 用 XHR 下载 PDF 二进制数据，通过 onProgress 回调上报下载百分比
       function fetchWithProgress(url, onProgress) {
         return new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
@@ -1012,25 +1103,20 @@
       }
 
       /* ============================================================
-       * 9. 书架（扫描可用书籍 / 展示选书列表）
+       * 书架：探测文件 / 分区展示 / 禁书密码
        * ============================================================ */
-
-      /**
-       * 探测某个 PDF 文件是否存在（不下载全部内容）。
-       * 优先用 HEAD 请求；如果服务器不支持 HEAD（405/501），
-       * 退化为 GET 请求，一收到数据就立即 abort，避免浪费流量。
-       */
       function probe(file) {
         return new Promise((resolve) => {
           const xhr = new XMLHttpRequest();
           xhr.open("HEAD", bookUrl(file), true);
-          xhr.timeout = 6000;
+          xhr.timeout = 8000;
           xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 400) resolve(true);
             else if (xhr.status === 405 || xhr.status === 501) {
+              // 部分托管不支持 HEAD，退化为 GET 并立刻 abort
               const g = new XMLHttpRequest();
               g.open("GET", bookUrl(file), true);
-              g.timeout = 6000;
+              g.timeout = 8000;
               g.onprogress = (e) => {
                 if (e.loaded > 0) {
                   g.abort();
@@ -1047,23 +1133,62 @@
         });
       }
 
-      /**
-       * 打开书架抽屉：扫描 BOOKS 中每本书文件是否存在，分「可读」「暂缺」两组展示。
-       * 扫描结果会缓存在 availableCache，同一次会话内不会重复探测。
-       */
       async function openShelf() {
         els.shelf.classList.add("show");
         els.shelf.setAttribute("aria-hidden", "false");
+        await renderShelfContent();
+      }
+
+      function closeShelf() {
+        els.shelf.classList.remove("show");
+        els.shelf.setAttribute("aria-hidden", "true");
+      }
+
+      function setShelfMode(mode) {
+        shelfMode = mode === "restricted" ? "restricted" : "normal";
+        els.tabNormal.classList.toggle("active", shelfMode === "normal");
+        els.tabRestricted.classList.toggle("active", shelfMode === "restricted");
+        els.tabNormal.setAttribute(
+          "aria-selected",
+          shelfMode === "normal" ? "true" : "false"
+        );
+        els.tabRestricted.setAttribute(
+          "aria-selected",
+          shelfMode === "restricted" ? "true" : "false"
+        );
+        els.shelfTitle.textContent =
+          shelfMode === "restricted" ? "🔒 禁书架" : "📚 选择书籍";
+        renderShelfContent();
+      }
+
+      async function renderShelfContent() {
+        const needLock = shelfMode === "restricted" && !isRestrictedUnlocked();
+        els.lockGate.classList.toggle("show", needLock);
+        els.bookList.hidden = needLock;
+        els.bookEmpty.hidden = true;
+
+        if (needLock) {
+          els.bookList.innerHTML = "";
+          els.lockErr.textContent = "";
+          els.lockInput.value = "";
+          setTimeout(() => {
+            try {
+              els.lockInput.focus();
+            } catch (e) {}
+          }, 280);
+          return;
+        }
+
         els.bookList.innerHTML =
           '<li class="scanning">正在扫描可用书籍…</li>';
-        els.bookEmpty.hidden = true;
 
         if (booksManifestError) {
           els.bookList.innerHTML = "";
           els.bookEmpty.hidden = false;
           els.bookEmpty.textContent =
-            "书目清单 books.json 加载失败：" + booksManifestError +
-            "（检查同目录下是否有 books.json，格式是否正确）";
+            "书目清单 books.json 加载失败：" +
+            booksManifestError +
+            "（检查同目录下是否有 books.json）";
           return;
         }
 
@@ -1074,28 +1199,49 @@
           availableCache = results;
         }
 
-        const okList = availableCache.filter((x) => x.ok).map((x) => x.book);
-        const missList = availableCache.filter((x) => !x.ok).map((x) => x.book);
+        const inMode = (b) =>
+          shelfMode === "restricted" ? !!b.restricted : !b.restricted;
+
+        const okList = availableCache
+          .filter((x) => x.ok && inMode(x.book))
+          .map((x) => x.book);
+        const missList = availableCache
+          .filter((x) => !x.ok && inMode(x.book))
+          .map((x) => x.book);
 
         els.bookList.innerHTML = "";
-        if (!okList.length) {
+
+        if (!okList.length && !missList.length) {
           els.bookEmpty.hidden = false;
-        } else {
-          okList.forEach((book) => {
-            const li = document.createElement("li");
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "book-item";
-            btn.innerHTML =
-              '<span class="ico">📖</span><span class="meta"><span class="t"></span><span class="s"></span></span>';
-            btn.querySelector(".t").textContent = book.title;
-            btn.querySelector(".s").textContent = book.sub + " · " + book.file;
-            btn.addEventListener("click", () => loadBook(book));
-            li.appendChild(btn);
-            els.bookList.appendChild(li);
-          });
+          els.bookEmpty.textContent =
+            shelfMode === "restricted"
+              ? '暂无禁书（在 books.json 中给条目加上 "restricted": true）'
+              : "暂无可用书籍";
+        } else if (!okList.length) {
+          els.bookEmpty.hidden = false;
+          els.bookEmpty.textContent =
+            shelfMode === "restricted"
+              ? "禁书文件暂缺（请确认远程目录中有对应 PDF）"
+              : "暂无可用书籍（请确认远程目录中有对应 PDF）";
         }
-        // 缺书也列出来但禁用，方便知道还缺哪些
+
+        okList.forEach((book) => {
+          const li = document.createElement("li");
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "book-item";
+          btn.innerHTML =
+            '<span class="ico">' +
+            (book.restricted ? "🔒" : "📖") +
+            '</span><span class="meta"><span class="t"></span><span class="s"></span></span>';
+          btn.querySelector(".t").textContent = book.title;
+          btn.querySelector(".s").textContent =
+            (book.sub ? book.sub + " · " : "") + book.file;
+          btn.addEventListener("click", () => loadBook(book));
+          li.appendChild(btn);
+          els.bookList.appendChild(li);
+        });
+
         missList.forEach((book) => {
           const li = document.createElement("li");
           const btn = document.createElement("button");
@@ -1111,35 +1257,52 @@
         });
       }
 
-      // 关闭书架抽屉
-      function closeShelf() {
-        els.shelf.classList.remove("show");
-        els.shelf.setAttribute("aria-hidden", "true");
+      function tryUnlockRestricted() {
+        const val = (els.lockInput.value || "").trim();
+        if (val === RESTRICTED_PASSWORD) {
+          setRestrictedUnlocked(true);
+          els.lockErr.textContent = "";
+          els.lockInput.value = "";
+          renderShelfContent();
+        } else {
+          els.lockErr.textContent = "密码错误，请重试";
+          els.lockInput.select();
+        }
       }
 
       /* ============================================================
-       * 10. 基础按钮事件（书架 / 翻页 / 缩放）
+       * 事件绑定
        * ============================================================ */
-
       els.btnShelf.addEventListener("click", openShelf);
       els.btnShelfClose.addEventListener("click", closeShelf);
       els.shelf.addEventListener("click", (e) => {
-        // 点击遮罩空白处（而非面板本身）时关闭书架
         if (e.target === els.shelf) closeShelf();
       });
 
-      // 重新扫描书目：重新拉取 books.json + 重新探测文件是否存在
-      // （改完 books.json 后不用刷新整个页面就能看到新书）
+      els.tabNormal.addEventListener("click", () => setShelfMode("normal"));
+      els.tabRestricted.addEventListener("click", () =>
+        setShelfMode("restricted")
+      );
+      els.btnLockUnlock.addEventListener("click", tryUnlockRestricted);
+      els.lockInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          tryUnlockRestricted();
+        }
+      });
+
       els.btnShelfRefresh.addEventListener("click", async () => {
         availableCache = null;
         await loadBooksManifest();
-        openShelf();
+        renderShelfContent();
       });
 
-      // 清除阅读记录：清空 IndexedDB 里的「最近阅读书籍」和「各书页码/缩放」，
-      // 然后刷新页面 —— 之后就会像第一次使用一样弹出书架。
       els.btnClearHistory.addEventListener("click", async () => {
-        if (!confirm("确定清除所有阅读记录吗？（各本书的页码和最近阅读书籍都会被清空）")) {
+        if (
+          !confirm(
+            "确定清除所有阅读记录吗？（各本书的页码和最近阅读书籍都会被清空）"
+          )
+        ) {
           return;
         }
         els.btnClearHistory.disabled = true;
@@ -1155,39 +1318,32 @@
       });
 
       /* ============================================================
-       * 11. 全屏模式
-       *    优先使用浏览器原生全屏 API；不支持时（部分手机浏览器）
-       *    退化为「CSS 全屏」——隐藏顶栏/底栏、让 stage 占满整个视口。
+       * 全屏
        * ============================================================ */
-
       els.btnFs.addEventListener("click", toggleFullscreen);
       els.stage.addEventListener("dblclick", toggleFullscreen);
-      // 全屏时悬浮的退出按钮：修复手机上「双击很难可靠退出全屏」的问题
       els.btnFsExit.addEventListener("click", (e) => {
         e.stopPropagation();
         toggleFullscreen();
       });
 
-      // 切换全屏相关的 UI 状态，并在需要时重新渲染当前页以铺满屏幕
       function setFullscreenUi(active) {
         document.body.classList.toggle("fullscreen-mode", active);
-        els.btnFs.textContent = active ? "⛶" : "⛶";
         els.btnFs.title = active ? "退出全屏" : "全屏";
-        // 全屏后重新计算 fit，让 PDF 尽可能铺满整个屏幕。
-        if (pdfDoc) {
-          requestAnimationFrame(() => renderPage(pageNum));
-        }
+        if (pdfDoc) requestAnimationFrame(() => renderPage(pageNum));
       }
 
-      // 在「原生全屏」与「CSS 全屏兜底」之间切换，并处理进入/退出两种方向
       async function toggleFullscreen() {
-        const isNativeFullscreen =
-          !!(document.fullscreenElement || document.webkitFullscreenElement);
+        const isNativeFullscreen = !!(
+          document.fullscreenElement || document.webkitFullscreenElement
+        );
 
-        if (!isNativeFullscreen && !document.body.classList.contains("fullscreen-mode")) {
+        if (
+          !isNativeFullscreen &&
+          !document.body.classList.contains("fullscreen-mode")
+        ) {
           const root = document.documentElement;
           const req = root.requestFullscreen || root.webkitRequestFullscreen;
-
           if (req) {
             try {
               await req.call(root);
@@ -1197,8 +1353,6 @@
               console.warn("原生全屏不可用，切换到页面全屏模式", e);
             }
           }
-
-          // 某些手机浏览器不提供 requestFullscreen，使用 CSS 全屏兜底。
           setFullscreenUi(true);
         } else {
           const exit = document.exitFullscreen || document.webkitExitFullscreen;
@@ -1213,31 +1367,33 @@
         }
       }
 
-      // 监听浏览器原生全屏状态变化（例如用户按 Esc 退出），同步 UI
       function syncFullscreenState() {
-        const active =
-          !!(document.fullscreenElement || document.webkitFullscreenElement) ||
-          document.body.classList.contains("fullscreen-mode");
+        const active = !!(
+          document.fullscreenElement ||
+          document.webkitFullscreenElement ||
+          document.body.classList.contains("fullscreen-mode")
+        );
         setFullscreenUi(active);
       }
-
       document.addEventListener("fullscreenchange", syncFullscreenState);
       document.addEventListener("webkitfullscreenchange", syncFullscreenState);
 
       /* ============================================================
-       * 12. 键盘快捷键（桌面端）
-       *    ← / PageUp：上一页    → / PageDown / 空格：下一页
-       *    Esc：关闭书架         f / F：切换全屏
+       * 键盘
        * ============================================================ */
       window.addEventListener("keydown", (e) => {
-        // 焦点在输入框（比如正在改页码）时，方向键/空格应该正常输入，不触发翻页快捷键
-        const activeTag = document.activeElement && document.activeElement.tagName;
+        const activeTag =
+          document.activeElement && document.activeElement.tagName;
         if (activeTag === "INPUT" || activeTag === "TEXTAREA") return;
 
         if (e.key === "ArrowLeft" || e.key === "PageUp") {
           e.preventDefault();
           goTo(pageNum - 1);
-        } else if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") {
+        } else if (
+          e.key === "ArrowRight" ||
+          e.key === "PageDown" ||
+          e.key === " "
+        ) {
           e.preventDefault();
           goTo(pageNum + 1);
         } else if (e.key === "Escape") {
@@ -1248,100 +1404,114 @@
       });
 
       /* ============================================================
-       * 13. 触屏手势（手机阅读）
-       *    1 指：未放大时左右滑动翻页；已放大时拖动平移页面
-       *    2 指：捏合缩放，并以两指中心为缩放锚点
+       * 触屏手势 / 鼠标
        * ============================================================ */
-      els.stage.addEventListener("touchstart", (e) => {
-        if (!pdfDoc || e.target.closest(".loading")) return;
+      els.stage.addEventListener(
+        "touchstart",
+        (e) => {
+          if (!pdfDoc || e.target.closest(".loading")) return;
 
-        if (e.touches.length >= 2) {
-          e.preventDefault();
-          pinchStartDistance = touchDistance(e.touches[0], e.touches[1]);
-          pinchStartScale = viewScale;
-          pinchStartCenter = touchCenter(e.touches[0], e.touches[1]);
-          isPanning = false;
-          els.stage.classList.remove("grabbing");
-          return;
-        }
+          if (e.touches.length >= 2) {
+            e.preventDefault();
+            pinchStartDistance = touchDistance(e.touches[0], e.touches[1]);
+            pinchStartScale = viewScale;
+            pinchStartCenter = touchCenter(e.touches[0], e.touches[1]);
+            isPanning = false;
+            els.stage.classList.remove("grabbing");
+            return;
+          }
 
-        if (e.touches.length === 1) {
-          const p = stagePoint(e.touches[0].clientX, e.touches[0].clientY);
-          panX = p.x;
-          panY = p.y;
-          lastPanX = viewX;
-          lastPanY = viewY;
-          isPanning = viewScale > 1.01;
-        }
-      }, { passive: false });
+          if (e.touches.length === 1) {
+            const p = stagePoint(e.touches[0].clientX, e.touches[0].clientY);
+            panX = p.x;
+            panY = p.y;
+            // 额外记下 client 坐标，供 touchend 判断左右滑翻页
+            panClientX = e.touches[0].clientX;
+            panClientY = e.touches[0].clientY;
+            lastPanX = viewX;
+            lastPanY = viewY;
+            isPanning = viewScale > 1.01;
+          }
+        },
+        { passive: false }
+      );
 
-      els.stage.addEventListener("touchmove", (e) => {
-        if (!pdfDoc) return;
+      els.stage.addEventListener(
+        "touchmove",
+        (e) => {
+          if (!pdfDoc) return;
 
-        if (e.touches.length >= 2 && pinchStartDistance > 0) {
-          e.preventDefault();
-          const distance = touchDistance(e.touches[0], e.touches[1]);
-          const center = touchCenter(e.touches[0], e.touches[1]);
-          const ratio = distance / pinchStartDistance;
-          const next = pinchStartScale * ratio;
+          if (e.touches.length >= 2 && pinchStartDistance > 0) {
+            e.preventDefault();
+            const distance = touchDistance(e.touches[0], e.touches[1]);
+            const center = touchCenter(e.touches[0], e.touches[1]);
+            setViewScale(
+              pinchStartScale * (distance / pinchStartDistance),
+              center.x,
+              center.y
+            );
+            if (pinchStartCenter) {
+              viewX += center.x - pinchStartCenter.x;
+              viewY += center.y - pinchStartCenter.y;
+              fitPanBounds();
+              applyViewTransform();
+            }
+            pinchStartCenter = center;
+            return;
+          }
 
-          setViewScale(next, center.x, center.y);
-
-          // 两指中心移动时同步平移，阅读时更自然
-          if (pinchStartCenter) {
-            viewX += center.x - pinchStartCenter.x;
-            viewY += center.y - pinchStartCenter.y;
+          if (e.touches.length === 1 && viewScale > 1.01) {
+            e.preventDefault();
+            const p = stagePoint(e.touches[0].clientX, e.touches[0].clientY);
+            viewX = lastPanX + (p.x - panX);
+            viewY = lastPanY + (p.y - panY);
             fitPanBounds();
             applyViewTransform();
+            isPanning = true;
           }
-          pinchStartCenter = center;
-          return;
-        }
+        },
+        { passive: false }
+      );
 
-        if (e.touches.length === 1 && viewScale > 1.01) {
-          e.preventDefault();
-          const p = stagePoint(e.touches[0].clientX, e.touches[0].clientY);
-          viewX = lastPanX + (p.x - panX);
-          viewY = lastPanY + (p.y - panY);
-          fitPanBounds();
-          applyViewTransform();
-          isPanning = true;
-        }
-      }, { passive: false });
+      els.stage.addEventListener(
+        "touchend",
+        (e) => {
+          if (!pdfDoc) return;
 
-      els.stage.addEventListener("touchend", (e) => {
-        if (!pdfDoc) return;
+          if (e.touches.length < 2) {
+            pinchStartDistance = 0;
+            pinchStartCenter = null;
+          }
 
-        if (e.touches.length < 2) {
+          if (viewScale > 1.01) {
+            isPanning = false;
+            els.stage.classList.remove("grabbing");
+            return;
+          }
+
+          if (e.changedTouches.length !== 1) return;
+          const t = e.changedTouches[0];
+          const dx = t.clientX - panClientX;
+          const dy = t.clientY - panClientY;
+          if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) return;
+          if (dx < 0) goTo(pageNum + 1);
+          else goTo(pageNum - 1);
+        },
+        { passive: false }
+      );
+
+      els.stage.addEventListener(
+        "touchcancel",
+        () => {
           pinchStartDistance = 0;
           pinchStartCenter = null;
-        }
-
-        // 放大状态下单指结束不翻页，避免拖动误翻页
-        if (viewScale > 1.01) {
           isPanning = false;
           els.stage.classList.remove("grabbing");
-          return;
-        }
+        },
+        { passive: true }
+      );
 
-        if (e.changedTouches.length !== 1) return;
-        const t = e.changedTouches[0];
-        const dx = t.clientX - panX;
-        const dy = t.clientY - panY;
-
-        if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) return;
-        if (dx < 0) goTo(pageNum + 1);
-        else goTo(pageNum - 1);
-      }, { passive: false });
-
-      els.stage.addEventListener("touchcancel", () => {
-        pinchStartDistance = 0;
-        pinchStartCenter = null;
-        isPanning = false;
-        els.stage.classList.remove("grabbing");
-      }, { passive: true });
-
-      // 桌面端鼠标拖动（放大后）
+      // 桌面拖动（放大后）
       els.stage.addEventListener("mousedown", (e) => {
         if (!pdfDoc || viewScale <= 1.01 || e.button !== 0) return;
         panX = e.clientX;
@@ -1351,7 +1521,6 @@
         isPanning = true;
         els.stage.classList.add("grabbing");
       });
-
       window.addEventListener("mousemove", (e) => {
         if (!isPanning || viewScale <= 1.01) return;
         viewX = lastPanX + (e.clientX - panX);
@@ -1359,26 +1528,24 @@
         fitPanBounds();
         applyViewTransform();
       });
-
       window.addEventListener("mouseup", () => {
         isPanning = false;
         els.stage.classList.remove("grabbing");
       });
 
-      // 鼠标滚轮缩放，方便电脑阅读
-      els.stage.addEventListener("wheel", (e) => {
-        if (!pdfDoc || (!e.ctrlKey && !e.metaKey)) return;
-        e.preventDefault();
-        const p = stagePoint(e.clientX, e.clientY);
-        setViewScale(viewScale * (e.deltaY < 0 ? 1.12 : 0.89), p.x, p.y);
-      }, { passive: false });
+      // Ctrl/⌘ + 滚轮缩放
+      els.stage.addEventListener(
+        "wheel",
+        (e) => {
+          if (!pdfDoc || (!e.ctrlKey && !e.metaKey)) return;
+          e.preventDefault();
+          const p = stagePoint(e.clientX, e.clientY);
+          setViewScale(viewScale * (e.deltaY < 0 ? 1.12 : 0.89), p.x, p.y);
+        },
+        { passive: false }
+      );
 
-      // 点击左/右半屏翻页
-      // 修复bug：click 和 dblclick 绑在同一个元素上时，浏览器对一次双击
-      // 会先后触发 click、click、dblclick —— 原来的写法会导致双击进全屏前
-      // 先被误判成连续翻了两页。这里把单击动作延迟一小段时间执行，如果
-      // 在这段时间内又来了第二次点击，就当作是双击的一部分，取消翻页，
-      // 交给 dblclick 处理全屏切换。
+      // 单击左右半屏翻页；延迟以区分双击全屏
       let stageClickTimer = null;
       els.stage.addEventListener("click", (e) => {
         if (!pdfDoc || e.target.closest(".loading") || viewScale > 1.01) return;
@@ -1403,38 +1570,37 @@
       });
 
       /* ============================================================
-       * 14. 启动逻辑
-       *    三种优先级（从高到低）：
-       *    ① URL 带 ?file=xxx.pdf → 直接打开指定书籍
-       *    ② 有「最近阅读」记录     → 自动恢复上次的书、页码，不弹书架
-       *    ③ 都没有（首次使用）     → 弹出书架，让用户手动选书
-       *    IndexedDB 是异步 API，所以整个启动流程包在一个 async 函数里。
+       * 启动
+       * 优先级：?file= → 最近阅读 → 弹出书架
        * ============================================================ */
       (async function boot() {
-        await migrateFromLocalStorage(); // 把旧版本 localStorage 里的记录搬过来（只执行一次）
-        await loadBooksManifest(); // 读取 books.json 书目清单
+        await migrateFromLocalStorage();
+        await loadBooksManifest();
 
         const params = new URLSearchParams(location.search);
         const fileParam = params.get("file");
         if (fileParam) {
-          // ① URL 显式指定文件：优先用 BOOKS 里的元数据，没有则用文件名兜底
-          const hit =
-            BOOKS.find((b) => b.file === fileParam) || {
-              file: fileParam,
-              title: fileParam.replace(/\.pdf$/i, ""),
-              sub: fileParam,
-            };
+          const hit = BOOKS.find((b) => b.file === fileParam) || {
+            file: fileParam,
+            title: fileParam.replace(/\.pdf$/i, ""),
+            sub: fileParam,
+            restricted: false,
+          };
           loadBook(hit);
           return;
         }
 
         const lastBook = await idbGet(KEY_LAST_BOOK);
         if (lastBook && lastBook.file) {
-          // ② 自动恢复上次阅读的书籍（若文件已被移除，loadBook 内部会自动弹出书架兜底）
-          const hit = BOOKS.find((b) => b.file === lastBook.file) || lastBook;
+          const fromList = BOOKS.find((b) => b.file === lastBook.file);
+          const hit = fromList || {
+            file: lastBook.file,
+            title: lastBook.title || lastBook.file,
+            sub: lastBook.sub || "",
+            restricted: !!lastBook.restricted,
+          };
           loadBook(hit).catch(() => {});
         } else {
-          // ③ 从未读过任何书：稍等再弹书架，避免闪烁
           setTimeout(openShelf, 200);
         }
       })();

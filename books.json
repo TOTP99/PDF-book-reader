@@ -1,5 +1,23 @@
 [
-  { "file": "anne-of-green-gables.pdf", "title": "Anne of Green Gables", "sub": "绿山墙的安妮" },
-  { "file": "outlaws_of_the_marsh.pdf", "title": "Outlaws of the Marsh", "sub": "水浒传" },
-  { "file": "jourwest.pdf", "title": "Journey to the West", "sub": "西游记" }
+  {
+    "file": "anne-of-green-gables.pdf",
+    "title": "Anne of Green Gables",
+    "sub": "绿山墙的安妮"
+  },
+  {
+    "file": "outlaws_of_the_marsh.pdf",
+    "title": "Outlaws of the Marsh",
+    "sub": "水浒传"
+  },
+  {
+    "file": "jourwest.pdf",
+    "title": "Journey to the West",
+    "sub": "西游记"
+  },
+  {
+    "file": "Jin ping Mei.pdf",
+    "title": "Jin Ping Mei",
+    "sub": "金瓶梅",
+    "restricted": true
+  }
 ]
