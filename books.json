@@ -19,5 +19,21 @@
     "title": "Jin Ping Mei",
     "sub": "金瓶梅",
     "restricted": true
-  }
+  },
+    {
+    "file": "Jin ge si.pdf",
+    "title": "Jin-ge temple",
+    "sub": "金阁寺"
+  },
+  {
+    "file": "San guo.pdf",
+    "title": "Three countries war",
+    "sub": "三国演义"
+  },
+  {
+    "file": "Hong lou.pdf",
+    "title": "Red garden",
+    "sub": "红楼梦",
+    "restricted": true
+  }  
 ]
