@@ -33,7 +33,12 @@
   {
     "file": "Hong lou.pdf",
     "title": "Red garden",
-    "sub": "红楼梦",
+    "sub": "红楼梦"
+  },
+  {
+    "file": "Tewu.pdf",
+    "title": "Secret agent theory",
+    "sub": "特务工作的理论与实际",
     "restricted": true
-  }  
+  }
 ]
