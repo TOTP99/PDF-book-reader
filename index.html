@@ -373,6 +373,29 @@ input[type=range].seek::-moz-range-thumb{width:20px;height:20px;border-radius:50
 @media (prefers-reduced-motion:reduce){
   *{transition-duration:.01ms!important;animation-duration:.01ms!important}
 }
+
+/* ── 横屏（iPhone 14 844×390）：竖屏上下 → 横屏左右并列，保留呼吸 ── */
+@media (orientation: landscape) and (min-width:700px){
+  /* 首页：左=继续阅读，右=分区签+书架网格 */
+  #view-home .lib-body{
+    display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);
+    gap:4px 28px;align-items:start;align-content:start;
+    padding-left:max(26px,env(safe-area-inset-left));
+    padding-right:max(26px,env(safe-area-inset-right));
+  }
+  #view-home #continue-wrap{grid-column:1;grid-row:1}
+  #view-home #continue-wrap .continue{margin:2px 0 0}
+  #view-home .sec-head{grid-column:2;grid-row:1}
+  #view-home .shelf-tabs{grid-column:2;grid-row:2}
+  #view-home #lock-gate{grid-column:2;grid-row:3}
+  #view-home .book-grid{grid-column:2;grid-row:4;
+    grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:14px 12px}
+  #view-home .lib-empty{grid-column:2;grid-row:4}
+  #view-home .lib-foot{grid-column:1/-1}
+  /* 阅读器：收紧顶栏/底栏，把高度还给书页 */
+  .rd-top{padding-top:max(6px,env(safe-area-inset-top));padding-bottom:6px}
+  .rd-bottom{padding-bottom:max(6px,env(safe-area-inset-bottom))}
+}
 </style>
 </head>
 <body>
