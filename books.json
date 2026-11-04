@@ -15,9 +15,32 @@
     "sub": "西游记"
   },
   {
+    "file": "San guo.pdf",
+    "title": "Romance of the Three Kingdoms",
+    "sub": "三国演义"
+  },
+  {
+    "file": "Jin ge si.pdf",
+    "title": "The Temple of the Golden Pavilion",
+    "sub": "金阁寺"
+  },
+  {
     "file": "Jin ping Mei.pdf",
     "title": "Jin Ping Mei",
     "sub": "金瓶梅",
     "restricted": true
+  },
+  {
+    "file": "Hong lou.pdf",
+    "title": "Dream of the Red Chamber",
+    "sub": "红楼梦",
+    "restricted": true
+  },
+  {
+    "file": "Tewu.pdf",
+    "title": "特务 顾顺章",
+    "restricted": true,
+    "sub": "Tewu",
+    "author": "顾顺章"
   }
 ]
