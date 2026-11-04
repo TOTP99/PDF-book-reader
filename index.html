@@ -611,6 +611,7 @@ input[type=range].seek::-moz-range-thumb{width:20px;height:20px;border-radius:50
 
 <script type="module">
 import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs";
+import { RESTRICTED_PASSWORD } from "./password.js";
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs";
 
@@ -618,10 +619,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
  * 配置
  * BOOKS_BASE  : PDF 本体远程目录
  * books.json  : 与本页同目录的书目清单（file/title/sub/author/restricted）
- * 私密书架密码：首次在下方填入；之后可在「设置 → 修改私密书架密码」中更改
+ * 私密书架密码：见同目录 password.js（默认 0000）；也可在「设置 → 修改私密书架密码」中更改
  * ============================================================ */
 const BOOKS_BASE = "https://totp99.github.io/source/books/";
-const DEFAULT_RESTRICTED_PASSWORD = "0000"; // ← 首次部署请改为你自己的密码
+const DEFAULT_RESTRICTED_PASSWORD = String(RESTRICTED_PASSWORD ?? "0000");
 
 const SS_UNLOCK = "mg_restricted_unlocked";
 const DB_NAME = "tp_reader_db", DB_VERSION = 1, STORE = "kv";
@@ -722,7 +723,10 @@ async function saveSettings(){ await idbSet(KEY_SETTINGS, {...settings}); }
 /* ---------------- 私密书架密码 ---------------- */
 async function getPassword(){
   const custom = await idbGet(KEY_PW);
-  return (typeof custom==="string" && custom) ? custom : DEFAULT_RESTRICTED_PASSWORD;
+  // 应用内修改的密码保存为 {pw, base}；若 password.js 之后被改动（base 不再匹配），则以 password.js 为准
+  if (custom && typeof custom==="object" && custom.pw && custom.base===DEFAULT_RESTRICTED_PASSWORD) return custom.pw;
+  if (typeof custom==="string" && custom) return custom; // 旧版本数据兼容
+  return DEFAULT_RESTRICTED_PASSWORD;
 }
 const isUnlocked = ()=>{ try{ return sessionStorage.getItem(SS_UNLOCK)==="1"; }catch(e){ return false; } };
 function setUnlocked(ok){ try{ ok ? sessionStorage.setItem(SS_UNLOCK,"1") : sessionStorage.removeItem(SS_UNLOCK); }catch(e){} }
@@ -1334,7 +1338,7 @@ $("btn-change-pw").addEventListener("click", async()=>{
   const b=prompt("请设置新密码（至少 4 位）：","");
   if(b===null) return;
   if(!b||b.trim().length<4){ toast("新密码至少 4 位"); return; }
-  await idbSet(KEY_PW, b.trim());
+  await idbSet(KEY_PW, { pw:b.trim(), base:DEFAULT_RESTRICTED_PASSWORD });
   toast("密码已更新");
 });
 $("btn-clear-data").addEventListener("click", async()=>{
